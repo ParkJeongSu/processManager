@@ -1,0 +1,86 @@
+server:
+  port: 9081
+spring:
+  application:
+    name: process-manager
+  server:
+    shutdown: graceful # 기본값은 immediate(즉시 종료)임. 꼭 graceful로 변경
+  lifecycle:
+    timeout-per-shutdown-phase: 30s # 30초 동안은 안 죽고 기다려줌 (로직 길면 늘려야 함)
+  profiles:
+    active: manager # 또는 rabbitmq | scheduler,rabbitmq | dispatcher | pex | tex 등으로 설정 가능
+  datasource:
+    mssql:
+      jdbc-url: jdbc:sqlserver://localhost:1433;databaseName=myprojecttest;encrypt=false;
+      username: sa
+      password: th!131030
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+      hikari:
+        pool-name: mssql-pool
+        maximum-pool-size: 20          # ← 최대 커넥션 수
+        minimum-idle: 10               # ← 최소 유휴 커넥션 수
+        connection-timeout: 30000      # ← 커넥션 획득 대기시간
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        leak-detection-threshold: 2000   # ← ms 단위
+  jpa:
+    hibernate:
+      jdbc:
+        batch_size: 50
+      ddl-auto: none # 개발 초기에는 update 또는 create, 운영에서는 none 또는 validate
+      order_inserts: true # INSERT 문을 정렬하여 배치 성능 최적화
+    properties:
+      hibernate:
+        #        format_sql: true # SQL 로그를 예쁘게 포맷팅
+        #        highlight_sql: true # ANSI 컬러 하이라이트 (지원 콘솔일 때)
+        generate_statistics: false        # 통계 수집 (org.hibernate.stat 로깅과 함께)
+    show-sql: true # 실행되는 SQL 쿼리를 로그로 보여줌
+  mail:
+    host: smtp.naver.com
+    port: 587
+    username: # userId
+    password: # Gmail은 앱 비밀번호 사용 권장
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+logging:
+  level:
+    # === Hibernate (Spring Boot 3/Hibernate 6 기준) ===
+    org.hibernate.SQL: DEBUG                     # 실행되는 SQL
+    org.hibernate.orm.jdbc.bind: TRACE           # 바인드 파라미터 값
+    org.hibernate.orm.jdbc.extract: DEBUG        # JDBC 결과 추출(선택)
+    org.hibernate.type.descriptor.sql: TRACE     # (버전에 따라) 추가 바인딩 상세
+    org.hibernate.stat: DEBUG                    # 2차캐시/쿼리카운트 등 통계 로그
+    # === JPA (Spring Data) ===
+    org.springframework.orm.jpa: DEBUG           # JPA 트랜잭션 등 프레임워크 레벨
+    org.springframework.transaction: DEBUG       # 트랜잭션 경계 로그
+    # === HikariCP ===
+    #com.zaxxer.hikari: DEBUG                     # 풀 라이프사이클/대여/반납 등 상세
+    #com.zaxxer.hikari.pool.HikariPool: DEBUG     # 풀 상태 변화 상세
+    com.zaxxer.hikari.HikariConfig: DEBUG        # 구성 파라미터 덤프
+    ezieco.eziframe.middleware: DEBUG
+    net:
+      javacrumbs:
+        shedlock: DEBUG
+jwt:
+  secret: bXktc3VwZXItc2VjcmV0LWtleS1mb3ItbW5nLXByb2plY3QtdGhhdC1pcy12ZXJ5LWxvbmctYW5kLXNlY3VyZQo=
+  access-token-validity-in-seconds: 86400 # 액세스 토큰 만료 시간 (예: 24시간) 86400
+  refresh-token-validity-in-seconds: 604800 # 리프레시 토큰 만료 시간 (예: 7일)
+---
+# 'pex,tex,dispatcher' 프로필이 활성화될 때만 이 설정이 적용됩니다.
+spring:
+  config:
+    activate:
+      on-profile: manager
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin
+    listener:
+      simple:
+        concurrency: 10 # 시작 시 생성되는 소비자(consumer) 스레드 수
+        max-concurrency: 10 # 부하 증가 시 최대 확장 가능한 소비자 스레드 수

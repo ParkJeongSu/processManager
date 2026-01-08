@@ -1,0 +1,19 @@
+version: '3.9'
+
+services:
+  db2:
+    image: ibmcom/db2:11.5.8.0
+    container_name: db2
+    privileged: true
+    ports:
+      - "50000:50000"    # JDBC 접속 포트
+    environment:
+      LICENSE: accept
+      DB2INST1_PASSWORD: 1234
+      DBNAME: testdb
+    volumes:
+      - db2_data:/database
+    restart: unless-stopped
+
+volumes:
+  db2_data:
