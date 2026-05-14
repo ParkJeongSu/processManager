@@ -1,10 +1,6 @@
 package kr.co.aim.domain.model;
 
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -26,6 +22,5 @@ public class ProcessStatusHistory {
     private LocalDateTime startTime;
     private LocalDateTime endRequestTime;
     private LocalDateTime endTime;
-    private String eventUser;
-
+    //TODO: eventUser 추가하기
 }

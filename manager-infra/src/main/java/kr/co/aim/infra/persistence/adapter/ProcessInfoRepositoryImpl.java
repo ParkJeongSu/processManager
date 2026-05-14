@@ -6,11 +6,10 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import kr.co.aim.common.dto.*;
+import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.repository.ProcessInfoRepository;
 import kr.co.aim.infra.persistence.entity.ProcessInfoEntity;
-import kr.co.aim.infra.persistence.entity.UserEntity;
 import kr.co.aim.infra.persistence.mapper.ProcessInfoMapper;
 import kr.co.aim.infra.persistence.springdatajpa.ProcessInfoJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,12 +25,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static kr.co.aim.infra.persistence.entity.QProcessInfoEntity.processInfoEntity;
-
 /**
  * UserRepository의 JPA 기반 구현체.
  * 실제 DB 작업은 Spring Data JPA가 제공하는 JpaRepository에 위임합니다.
  */
+
+import static kr.co.aim.infra.persistence.entity.QProcessInfoEntity.processInfoEntity;
 
 @Repository
 @RequiredArgsConstructor
@@ -68,24 +67,21 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
         processInfoJpaRepository.deleteAllByIdInBatch(ids);
     }
 
+
+
     @Override
-    public Page<ProcessInfoResponseDto> findProcessInfoWithConditions(ProcessInfoSearchConditionDto condition, Pageable pageable) {
-        // 1. 공통 쿼리 빌더 생성 (SELECT, FROM, JOIN, WHERE)
-        JPAQuery<ProcessInfoResponseDto> query = queryFactory
-                .select(new QProcessInfoResponseDto(
-                            processInfoEntity.port,
-                            processInfoEntity.systemName,
-                            processInfoEntity.processGroupName,
-                            processInfoEntity.processName,
-                            processInfoEntity.description,
-                            processInfoEntity.copyDir,
-                            processInfoEntity.workingDir,
-                            processInfoEntity.fileName,
-                            processInfoEntity.command
-                ))
+    public List<ProcessInfo> saveAll(List<ProcessInfo> processInfoList) {
+        List<ProcessInfoEntity> entityList = processInfoList.stream().map(processInfoMapper::toEntity).collect(Collectors.toList());
+        List<ProcessInfoEntity> savedEntityList = processInfoJpaRepository.saveAll(entityList);
+        return savedEntityList.stream().map(processInfoMapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchConditionVo condition, Pageable pageable) {
+        JPAQuery<ProcessInfoEntity> query = queryFactory
+                .select(processInfoEntity)
                 .from(processInfoEntity)
-                .where(
-                        // ** 동일한 WHERE 조건 **
+                .where(                        // ** 동일한 WHERE 조건 **
                         portEq(condition.getPort()),
                         systemNameContains(condition.getSystemName()),
                         processGroupNameContains(condition.getProcessGroupName()),
@@ -103,7 +99,7 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
         }
 
         // 4. 데이터 조회
-        List<ProcessInfoResponseDto> content = query.fetch();
+        List<ProcessInfo> content = query.fetch().stream().map(processInfoMapper::toDomain).collect(Collectors.toList());
 
         // 5. [수정] 카운트 조회 분기
         long total;
@@ -132,13 +128,6 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
 
         // 6. PageImpl 반환
         return new PageImpl<>(content, pageable, total);
-    }
-
-    @Override
-    public List<ProcessInfo> saveAll(List<ProcessInfo> processInfoList) {
-        List<ProcessInfoEntity> entityList = processInfoList.stream().map(processInfoMapper::toEntity).collect(Collectors.toList());
-        List<ProcessInfoEntity> savedEntityList = processInfoJpaRepository.saveAll(entityList);
-        return savedEntityList.stream().map(processInfoMapper::toDomain).collect(Collectors.toList());
     }
 
     private OrderSpecifier<?>[] getOrderSpecifiers(Sort sort) {

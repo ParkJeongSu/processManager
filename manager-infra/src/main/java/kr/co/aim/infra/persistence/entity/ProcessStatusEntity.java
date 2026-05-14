@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "PROCESS_STATUS")
+@Table(name = "PROCESS_STATUS",catalog = "NEXBEPSM", schema = "dbo")
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA를 위한 기본 생성자

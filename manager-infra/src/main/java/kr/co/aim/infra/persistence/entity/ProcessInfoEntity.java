@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "PROCESS_INFO")
+@Table(name = "PROCESS_INFO" ,catalog = "NEXBEPSM", schema = "dbo")
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA를 위한 기본 생성자
@@ -22,6 +22,9 @@ public class ProcessInfoEntity {
 
     @Column(name = "SYSTEM_NAME")
     private String systemName; // 예: pex11
+
+    @Column(name = "FILE_NAME")
+    private String fileName;  // 예: mng.jar
 
     @Column(name = "PROCESS_GROUP_NAME")
     private String processGroupName; // 예: pex
@@ -38,9 +41,10 @@ public class ProcessInfoEntity {
     @Column(name = "WORKING_DIR")
     private String workingDir;  // 예: C:\mng\pex11
 
-    @Column(name = "FILE_NAME")
-    private String fileName;  // 예: mng.jar
+    @Column(name = "BATCH_DIR")
+    private String batchDir;  // 예: C:\mng\
 
-    @Column(name = "COMMAND")
-    private String command;  // 예: javaw -jar
+    @Column(name = "BATCH_NAME")
+    private String batchName;  // 예: run.bat
+
 }

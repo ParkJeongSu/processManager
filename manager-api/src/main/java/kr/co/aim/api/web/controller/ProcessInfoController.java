@@ -1,13 +1,14 @@
 package kr.co.aim.api.web.controller;
 
 import jakarta.servlet.http.HttpServletResponse;
+import kr.co.aim.api.dto.*;
 import kr.co.aim.api.service.ExcelService;
 import kr.co.aim.api.service.ProcessInfoService;
-import kr.co.aim.api.service.UserService;
-import kr.co.aim.common.dto.*;
 import kr.co.aim.common.error.ExcelValidationException;
+import kr.co.aim.common.vo.ProcessInfoCreateRequestVo;
+import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
+import kr.co.aim.common.vo.ProcessInfoUpdateRequestVo;
 import kr.co.aim.domain.model.ProcessInfo;
-import kr.co.aim.domain.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/process-info")
@@ -34,8 +36,12 @@ public class ProcessInfoController {
             @PathVariable("port") Integer port,
             @RequestBody ProcessInfoUpdateRequestDto requestDto
     ) {
+
+        ProcessInfoUpdateRequestVo vo = ProcessInfoUpdateRequestDto.toVo(requestDto);
+        vo.setPort(port);
+
         // 3. 서비스 계층에 작업 위임
-        ProcessInfo processInfo = processInfoService.changeProcessInfo(port,requestDto);
+        ProcessInfo processInfo = processInfoService.changeProcessInfo(vo);
         // 4. 결과 변환 및 HTTP 응답
         ProcessInfoResponseDto responseDto =
                 ProcessInfoResponseDto.builder()
@@ -46,7 +52,8 @@ public class ProcessInfoController {
                         .description(processInfo.getDescription())
                         .copyDir(processInfo.getCopyDir())
                         .workingDir(processInfo.getWorkingDir())
-                        .command(processInfo.getCommand())
+                        .batchDir(processInfo.getBatchDir())
+                        .batchName(processInfo.getBatchName())
                         .build();
         
         return ResponseEntity.ok(responseDto);
@@ -55,8 +62,10 @@ public class ProcessInfoController {
     // 1. 요청 접수: PATCH /api/process-info
     @PostMapping
     public ResponseEntity<ProcessInfoResponseDto> createProcessInfo(@RequestBody ProcessInfoCreateRequestDto requestDto) {
+
+        ProcessInfoCreateRequestVo vo = ProcessInfoCreateRequestDto.toVo(requestDto);
         // 3. 서비스 계층에 작업 위임
-        ProcessInfo processInfo = processInfoService.createProcessInfo(requestDto);
+        ProcessInfo processInfo = processInfoService.createProcessInfo(vo);
 
         // 4. 결과 변환 및 HTTP 응답
         ProcessInfoResponseDto responseDto =
@@ -68,7 +77,8 @@ public class ProcessInfoController {
                         .description(processInfo.getDescription())
                         .copyDir(processInfo.getCopyDir())
                         .workingDir(processInfo.getWorkingDir())
-                        .command(processInfo.getCommand())
+                        .batchDir(processInfo.getBatchDir())
+                        .batchName(processInfo.getBatchName())
                         .build();
 
         return ResponseEntity.ok(responseDto);
@@ -80,10 +90,11 @@ public class ProcessInfoController {
             ProcessInfoSearchConditionDto condition,
             Pageable pageable) {
         // 3. 서비스 계층에 작업 위임
-        Page<ProcessInfoResponseDto> userPage = processInfoService.findProcessInfoList(condition, pageable);
-
+        ProcessInfoSearchConditionVo vo = ProcessInfoSearchConditionDto.toVo(condition);
+        Page<ProcessInfo> processInfoPage = processInfoService.findProcessInfoList(vo, pageable);
+        Page<ProcessInfoResponseDto> processInfoResponseDtos = processInfoPage.map(ProcessInfoResponseDto::from);
         // 4. 결과 변환 및 HTTP 응답
-        return ResponseEntity.ok(userPage);
+        return ResponseEntity.ok(processInfoResponseDtos);
     }
 
     @DeleteMapping
@@ -100,10 +111,13 @@ public class ProcessInfoController {
             ProcessInfoSearchConditionDto condition,
             Pageable pageable) {
         // 3. 서비스 계층에 작업 위임
-        Page<ProcessInfoResponseDto> page = processInfoService.findProcessInfoList(condition, Pageable.unpaged());
+
+        ProcessInfoSearchConditionVo vo =
+        ProcessInfoSearchConditionDto.toVo(condition);
+        Page<ProcessInfo> page = processInfoService.findProcessInfoList(vo, Pageable.unpaged());
 
         // 3. Page에서 실제 데이터 리스트(List)를 가져옴
-        List<ProcessInfoResponseDto> dataList = page.getContent();
+        List<ProcessInfo> dataList = page.getContent();
 
         // 4. ExcelService에 쓰기 작업 위임 (헤더 설정 및 파일 생성)
         excelService.writeToExcel(response ,dataList);
@@ -115,9 +129,9 @@ public class ProcessInfoController {
         try {
             // 서비스 로직에서 (2)~(5) 검증 수행
             List<ProcessInfoCreateRequestDto> importList = excelService.importData(file,ProcessInfoCreateRequestDto.class);
-
+            List<ProcessInfoCreateRequestVo> voList = importList.stream().map(ProcessInfoCreateRequestDto::toVo).collect(Collectors.toList());
             // importList 를 가지고
-            processInfoService.createProcessInfo(importList);
+            processInfoService.createProcessInfo(voList);
 
             // 200 OK (성공)
             return ResponseEntity.ok().build();

@@ -1,13 +1,12 @@
 package kr.co.aim.domain.repository;
-import kr.co.aim.common.dto.ProcessInfoResponseDto;
-import kr.co.aim.common.dto.ProcessInfoSearchConditionDto;
-import kr.co.aim.common.dto.UserResponseDto;
-import kr.co.aim.common.dto.UserSearchConditionDto;
+import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
 import kr.co.aim.domain.model.ProcessInfo;
-import kr.co.aim.domain.model.ProcessStatus;
-import kr.co.aim.domain.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+//import kr.co.aim.common.dto.ProcessInfoResponseDto;
+//import kr.co.aim.common.dto.ProcessInfoSearchConditionDto;
+//import org.springframework.data.domain.Page;
+//import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +46,7 @@ public interface ProcessInfoRepository {
 
     void deleteAllByIdInBatch(List<Integer>ids);
 
-    Page<ProcessInfoResponseDto> findProcessInfoWithConditions(ProcessInfoSearchConditionDto condition, Pageable pageable);
+    Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchConditionVo condition, Pageable pageable);
 
     List<ProcessInfo> saveAll(List<ProcessInfo> processInfoList);
 

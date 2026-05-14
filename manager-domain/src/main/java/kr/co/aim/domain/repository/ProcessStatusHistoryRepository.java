@@ -1,13 +1,8 @@
 package kr.co.aim.domain.repository;
-import kr.co.aim.common.dto.ProcessStatusHistoryConditionDto;
-import kr.co.aim.common.dto.ProcessStatusHistoryResponseDto;
-import kr.co.aim.domain.model.ProcessStatus;
+import kr.co.aim.common.vo.ProcessStatusHistoryConditionVo;
 import kr.co.aim.domain.model.ProcessStatusHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * 알람 저장소의 기능을 정의하는 인터페이스.
@@ -20,9 +15,6 @@ public interface ProcessStatusHistoryRepository {
      * 모든 프로세스를 찾습니다.
      * @return 모든 프로세스 info List
      */
-    ProcessStatusHistory save(ProcessStatusHistory processStatus);
-
-    Page<ProcessStatusHistoryResponseDto> findProcessStatusHistoryWithConditions(ProcessStatusHistoryConditionDto condition, Pageable pageable);
-    
+    ProcessStatusHistory save(ProcessStatusHistory processStatusHistory);
 
 }

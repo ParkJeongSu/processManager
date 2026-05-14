@@ -16,5 +16,6 @@ public class ProcessInfoUpdateCommand {
     private final String copyDir;
     private final String workingDir;
     private final String fileName;
-    private final String command;
+    private final String batchDir;  // 예: C:\mng\
+    private final String batchName;  // 예: run.bat
 }

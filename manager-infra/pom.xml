@@ -44,6 +44,12 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
+            <groupId>com.ibm.db2</groupId>
+            <artifactId>jcc</artifactId>
+            <version>11.5.8.0</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 public enum SystemName implements MetaDataEnum {
     MNG("MNG"),
     WCS("WCS"),
+    MANTI("MANTI"),
     EAS("EAS");
     private final String value;
 }

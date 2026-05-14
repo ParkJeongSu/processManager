@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "PROCESS_STATUS_HISTORY")
+@Table(name = "PROCESS_STATUS_HISTORY",catalog = "NEXBEPSM", schema = "dbo")
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA를 위한 기본 생성자
@@ -46,8 +46,5 @@ public class ProcessStatusHistoryEntity {
 
     @Column(name = "END_TIME")
     private LocalDateTime endTime;
-
-    @Column(name = "EVENT_USER")
-    private String eventUser;
 
 }
