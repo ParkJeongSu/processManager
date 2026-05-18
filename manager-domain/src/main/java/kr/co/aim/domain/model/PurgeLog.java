@@ -3,7 +3,6 @@ package kr.co.aim.domain.model;
 
 import kr.co.aim.common.Utils.TsidUtils;
 import kr.co.aim.domain.command.PurgeLogCreateCommand;
-import kr.co.aim.domain.command.PurgeLogUpdateCommand;
 import lombok.*;
 import org.apache.commons.lang3.ObjectUtils;
 
@@ -40,16 +39,6 @@ public class PurgeLog {
                 .status(command.getStatus())
                 .errorMsg(command.getErrorMsg())
                 .build();
-    }
-
-    public PurgeLog update(PurgeLogUpdateCommand command){
-        Integer deleteCount = ObjectUtils.isEmpty(command.getDeleteCount()) ? 0 : command.getDeleteCount();
-        Integer sumDeleteCount = getDeleteCount() + deleteCount;
-        setDeleteCount( sumDeleteCount);
-        setEndDateTime(command.getEndDateTime());
-        setStatus(command.getStatus());
-        setErrorMsg(command.getErrorMsg());
-        return this;
     }
 
 }

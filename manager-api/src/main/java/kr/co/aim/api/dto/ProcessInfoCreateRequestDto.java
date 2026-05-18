@@ -1,6 +1,6 @@
 package kr.co.aim.api.dto;
 
-import kr.co.aim.common.vo.ProcessInfoCreateRequestVo;
+import kr.co.aim.common.condition.ProcessInfoCreateRequestCondition;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,8 +21,8 @@ public class ProcessInfoCreateRequestDto {
     private String batchDir;  // 예: C:\mng\
     private String batchName;  // 예: run.bat
 
-    public static ProcessInfoCreateRequestVo toVo(ProcessInfoCreateRequestDto requestDto) {
-        return ProcessInfoCreateRequestVo
+    public static ProcessInfoCreateRequestCondition toVo(ProcessInfoCreateRequestDto requestDto) {
+        return ProcessInfoCreateRequestCondition
                 .builder()
                 .port(requestDto.port)
                 .systemName(requestDto.systemName)

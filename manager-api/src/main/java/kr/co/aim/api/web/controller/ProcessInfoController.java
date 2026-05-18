@@ -5,18 +5,20 @@ import kr.co.aim.api.dto.*;
 import kr.co.aim.api.service.ExcelService;
 import kr.co.aim.api.service.ProcessInfoService;
 import kr.co.aim.common.error.ExcelValidationException;
-import kr.co.aim.common.vo.ProcessInfoCreateRequestVo;
-import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
-import kr.co.aim.common.vo.ProcessInfoUpdateRequestVo;
+import kr.co.aim.common.condition.ProcessInfoCreateRequestCondition;
+import kr.co.aim.common.condition.ProcessInfoSearchCondition;
+import kr.co.aim.common.condition.ProcessInfoUpdateRequestCondition;
 import kr.co.aim.domain.model.ProcessInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,73 +34,43 @@ public class ProcessInfoController {
 
     // 1. 요청 접수: PATCH /api/process-info/{port}
     @PatchMapping("/{port}")
-    public ResponseEntity<ProcessInfoResponseDto> changeProcessInfo(
+    public ResponseEntity<Page<ProcessInfo>> changeProcessInfo(
             @PathVariable("port") Integer port,
-            @RequestBody ProcessInfoUpdateRequestDto requestDto
+            @RequestBody ProcessInfoUpdateRequestCondition requestCondition
     ) {
-
-        ProcessInfoUpdateRequestVo vo = ProcessInfoUpdateRequestDto.toVo(requestDto);
-        vo.setPort(port);
+        requestCondition.setPort(port);
 
         // 3. 서비스 계층에 작업 위임
-        ProcessInfo processInfo = processInfoService.changeProcessInfo(vo);
-        // 4. 결과 변환 및 HTTP 응답
-        ProcessInfoResponseDto responseDto =
-                ProcessInfoResponseDto.builder()
-                        .port(processInfo.getPort())
-                        .systemName(processInfo.getSystemName())
-                        .processGroupName(processInfo.getProcessGroupName())
-                        .processName(processInfo.getProcessName())
-                        .description(processInfo.getDescription())
-                        .copyDir(processInfo.getCopyDir())
-                        .workingDir(processInfo.getWorkingDir())
-                        .batchDir(processInfo.getBatchDir())
-                        .batchName(processInfo.getBatchName())
-                        .build();
-        
-        return ResponseEntity.ok(responseDto);
+        ProcessInfo processInfo = processInfoService.changeProcessInfo(requestCondition);
+
+        List<ProcessInfo> content = Collections.singletonList(processInfo);
+        return ResponseEntity.ok(new PageImpl<>(content));
     }
 
     // 1. 요청 접수: PATCH /api/process-info
     @PostMapping
-    public ResponseEntity<ProcessInfoResponseDto> createProcessInfo(@RequestBody ProcessInfoCreateRequestDto requestDto) {
+    public ResponseEntity<Page<ProcessInfo>> createProcessInfo(@RequestBody ProcessInfoCreateRequestCondition requestCondition) {
 
-        ProcessInfoCreateRequestVo vo = ProcessInfoCreateRequestDto.toVo(requestDto);
         // 3. 서비스 계층에 작업 위임
-        ProcessInfo processInfo = processInfoService.createProcessInfo(vo);
+        ProcessInfo processInfo = processInfoService.createProcessInfo(requestCondition);
 
-        // 4. 결과 변환 및 HTTP 응답
-        ProcessInfoResponseDto responseDto =
-                ProcessInfoResponseDto.builder()
-                        .port(processInfo.getPort())
-                        .systemName(processInfo.getSystemName())
-                        .processGroupName(processInfo.getProcessGroupName())
-                        .processName(processInfo.getProcessName())
-                        .description(processInfo.getDescription())
-                        .copyDir(processInfo.getCopyDir())
-                        .workingDir(processInfo.getWorkingDir())
-                        .batchDir(processInfo.getBatchDir())
-                        .batchName(processInfo.getBatchName())
-                        .build();
-
-        return ResponseEntity.ok(responseDto);
+        List<ProcessInfo> content = Collections.singletonList(processInfo);
+        return ResponseEntity.ok(new PageImpl<>(content));
     }
 
     // 1. 요청 접수: GET /api/process-info
     @GetMapping
-    public ResponseEntity<Page<ProcessInfoResponseDto>> getProcessInfoList(
-            ProcessInfoSearchConditionDto condition,
+    public ResponseEntity<Page<ProcessInfo>> getProcessInfoList(
+            ProcessInfoSearchCondition condition,
             Pageable pageable) {
         // 3. 서비스 계층에 작업 위임
-        ProcessInfoSearchConditionVo vo = ProcessInfoSearchConditionDto.toVo(condition);
-        Page<ProcessInfo> processInfoPage = processInfoService.findProcessInfoList(vo, pageable);
-        Page<ProcessInfoResponseDto> processInfoResponseDtos = processInfoPage.map(ProcessInfoResponseDto::from);
+        Page<ProcessInfo> processInfoPage = processInfoService.findProcessInfoList(condition, pageable);
         // 4. 결과 변환 및 HTTP 응답
-        return ResponseEntity.ok(processInfoResponseDtos);
+        return ResponseEntity.ok(processInfoPage);
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> deleteProcessInfoList(@RequestBody DeleteIntegerItemListDto request) {
+    public ResponseEntity<Void> deleteProcessInfoList(@RequestBody kr.co.aim.common.condition.DeleteIntegerItemListDto request) {
         processInfoService.deleteProcessInfoByIds(request.getIds());
         // 성공적으로 삭제되었으며, 별도의 본문 내용 없이 응답한다는 의미
         return ResponseEntity.noContent().build();
@@ -108,13 +80,11 @@ public class ProcessInfoController {
     @GetMapping("/export")
     public void getAllProcessInfoList(
             HttpServletResponse response, // 엑셀 파일을 스트리밍하기 위해 필요
-            ProcessInfoSearchConditionDto condition,
+            ProcessInfoSearchCondition condition,
             Pageable pageable) {
         // 3. 서비스 계층에 작업 위임
 
-        ProcessInfoSearchConditionVo vo =
-        ProcessInfoSearchConditionDto.toVo(condition);
-        Page<ProcessInfo> page = processInfoService.findProcessInfoList(vo, Pageable.unpaged());
+        Page<ProcessInfo> page = processInfoService.findProcessInfoList(condition, Pageable.unpaged());
 
         // 3. Page에서 실제 데이터 리스트(List)를 가져옴
         List<ProcessInfo> dataList = page.getContent();
@@ -129,7 +99,7 @@ public class ProcessInfoController {
         try {
             // 서비스 로직에서 (2)~(5) 검증 수행
             List<ProcessInfoCreateRequestDto> importList = excelService.importData(file,ProcessInfoCreateRequestDto.class);
-            List<ProcessInfoCreateRequestVo> voList = importList.stream().map(ProcessInfoCreateRequestDto::toVo).collect(Collectors.toList());
+            List<ProcessInfoCreateRequestCondition> voList = importList.stream().map(ProcessInfoCreateRequestDto::toVo).collect(Collectors.toList());
             // importList 를 가지고
             processInfoService.createProcessInfo(voList);
 

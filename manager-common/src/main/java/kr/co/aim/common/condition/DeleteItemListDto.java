@@ -1,8 +1,7 @@
-package kr.co.aim.api.dto;
+package kr.co.aim.common.condition;
 
 import lombok.*;
 
-import java.util.Date;
 import java.util.List;
 
 @Getter

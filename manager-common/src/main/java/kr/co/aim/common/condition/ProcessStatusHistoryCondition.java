@@ -1,4 +1,4 @@
-package kr.co.aim.common.vo;
+package kr.co.aim.common.condition;
 
 import lombok.*;
 
@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor//(access = AccessLevel.PROTECTED) // JPA Entity 등을 위한 기본 생성자
-public class ProcessStatusHistoryConditionVo {
+public class ProcessStatusHistoryCondition {
     private LocalDateTime fromEventTime;
     private LocalDateTime toEventTime;
     private Integer port; // 예: 8081

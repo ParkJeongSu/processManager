@@ -1,4 +1,4 @@
-package kr.co.aim.common.vo;
+package kr.co.aim.common.condition;
 
 import lombok.*;
 
@@ -7,7 +7,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor//(access = AccessLevel.PROTECTED) // JPA Entity 등을 위한 기본 생성자
 @AllArgsConstructor
-public class ProcessInfoSearchConditionVo {
+public class ProcessInfoCreateRequestCondition {
 
     private Integer port;
     private String systemName;
@@ -17,5 +17,6 @@ public class ProcessInfoSearchConditionVo {
     private String copyDir;
     private String workingDir;
     private String fileName;
-    private String command;
+    private String batchDir;  // 예: C:\mng\
+    private String batchName;  // 예: run.bat
 }

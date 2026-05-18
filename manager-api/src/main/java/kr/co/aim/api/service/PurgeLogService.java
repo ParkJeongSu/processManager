@@ -1,10 +1,13 @@
 package kr.co.aim.api.service;
 
+import kr.co.aim.common.condition.PurgeLogSearchCondition;
 import kr.co.aim.domain.command.PurgeLogCreateCommand;
 import kr.co.aim.domain.model.PurgeLog;
 import kr.co.aim.domain.repository.PurgeLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +34,11 @@ public class PurgeLogService {
     @Transactional
     public Optional<PurgeLog> findByBatchIdAndTableName(String batchId, String tableName){
         return purgeLogRepository.findByBatchIdAndTableName(batchId, tableName);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PurgeLog> findPurgeLogWithConditions(PurgeLogSearchCondition condition, Pageable pageable){
+        return purgeLogRepository.findPurgeLogWithConditions(condition, pageable);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

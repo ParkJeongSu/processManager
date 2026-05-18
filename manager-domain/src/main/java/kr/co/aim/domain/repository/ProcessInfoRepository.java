@@ -1,5 +1,5 @@
 package kr.co.aim.domain.repository;
-import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
+import kr.co.aim.common.condition.ProcessInfoSearchCondition;
 import kr.co.aim.domain.model.ProcessInfo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +46,7 @@ public interface ProcessInfoRepository {
 
     void deleteAllByIdInBatch(List<Integer>ids);
 
-    Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchConditionVo condition, Pageable pageable);
+    Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchCondition condition, Pageable pageable);
 
     List<ProcessInfo> saveAll(List<ProcessInfo> processInfoList);
 

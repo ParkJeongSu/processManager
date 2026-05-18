@@ -1,8 +1,7 @@
 package kr.co.aim.api.service;
 
 import kr.co.aim.common.enums.SystemName;
-import kr.co.aim.common.vo.ProcessControlRequestVo;
-import kr.co.aim.common.vo.ProcessStatusResponseVo;
+import kr.co.aim.common.condition.ProcessControlRequestCondition;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -36,8 +34,7 @@ public class ProcessService {
     private final ProcessInfoService processInfoService;
     private final ProcessStatusService processStatusService;
     private final ConnectionCheckService connectionCheckService;
-    // HTTP 요청을 보내기 위한 도구 (Spring 기본 제공)
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final ProcessAsyncService processAsyncService;
 
     public List<ProcessStatusResponseDto> getProcessList(){
         List<ProcessStatusResponseDto> resultList = new ArrayList<>();
@@ -161,7 +158,7 @@ public class ProcessService {
      * 프로세스 시작 로직
      */
     @Transactional
-    public ProcessStatusResponseVo startProcess(int port, ProcessControlRequestVo vo) {
+    public ProcessStatusResponseDto startProcess(int port, ProcessControlRequestCondition vo) {
 
         Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
         if(optionalProcessInfo.isEmpty()){
@@ -279,7 +276,7 @@ public class ProcessService {
             log.info("Process Started Command Sent: {}", processInfo.getProcessName());
 
             // 4. 결과 Vo 반환
-            return ProcessStatusResponseVo.builder()
+            return ProcessStatusResponseDto.builder()
                     .port(port)
                     .systemName(processInfo.getSystemName())
                     .processGroupName(processInfo.getProcessGroupName())
@@ -299,7 +296,7 @@ public class ProcessService {
      * 프로세스 종료 로직
      */
     @Transactional
-    public ProcessStatusResponseVo stopProcess(int port, ProcessControlRequestVo requestVo) {
+    public ProcessStatusResponseDto stopProcess(int port, ProcessControlRequestCondition requestVo) {
 
         if (!isRunning(port)) {
             throw new IllegalStateException("이미 종료된 프로세스이거나 연결할 수 없습니다.");
@@ -323,25 +320,25 @@ public class ProcessService {
         }
 
 
-        // url : graceful shutdown url
-        String url = "http://localhost:" + port + "/wcs-web" + "/stop";
-        log.info("종료 요청 전송: {}", url);
+
 
         try {
             // 1. 종료 요청
-            String reply = restTemplate.postForObject(url, null, String.class);
-            LocalDateTime currentTime = LocalDateTime.now();
-
-            processStatusService.markAsDown(port,requestVo);
-
+            // url : graceful shutdown url
+            String url = "http://localhost:" + port + "/wcs-web" + "/stop";
+            log.info("종료 요청 전송: {}", url);
+            processAsyncService.performShutdown(port,url,requestVo);
             log.info("Process Stop Command Sent: {}", processInfo.getProcessName());
 
-            return ProcessStatusResponseVo.builder()
+            LocalDateTime currentTime = LocalDateTime.now();
+
+
+            return ProcessStatusResponseDto.builder()
                     .port(port)
                     .systemName(processInfo.getSystemName())
                     .processGroupName(processInfo.getProcessGroupName())
                     .processName(processInfo.getProcessName())
-                    .status(ProcessState.DOWN.getValue())
+                    .status(ProcessState.STOPPING.getValue())
                     .endTime(currentTime)
                     .description("종료 명령 전송 완료")
                     .build();
@@ -356,113 +353,213 @@ public class ProcessService {
 
     @Transactional
     public void checkProcessStatus() {
+        List<ProcessInfo> processInfoList = processInfoService.findAll();
+        List<ProcessStatus> processStatusList = processStatusService.findAll();
 
-        List<ProcessStatus> processList = processStatusService.findAll();
+        Map<Integer,ProcessStatus> statusPorts = new HashMap<>();
+        for (ProcessStatus status : processStatusList) {
+            statusPorts.put(status.getPort(),status);
+        }
 
         LocalDateTime currentTime = LocalDateTime.now();
+        // 유예 기간 설정 (3분)
+        long gracePeriodMinutes = 3;
 
-        for (ProcessStatus ps : processList) {
 
+        for(ProcessInfo processInfo : processInfoList){
             ProcessStatusHistory processStatusHistory = null;
-            String dbStatus = ps.getStatus();
-            int port = ps.getPort();
+
+            int port = processInfo.getPort();
             String processId = this.findPidByPort(port);
-            Long pid = processId !=null ? Long.parseLong(processId) : 0L;
+            Long pid = processId != null ? Long.parseLong(processId) : 0L;
             Integer processIdByInteger = processId !=null ? Integer.parseInt(processId) :0;
 
             // 1. 현재 물리적 상태 체크
             boolean isPortUp = isPortOpen(port);
             boolean isPidAlive = isProcessAlive(pid);
 
-            // -------------------------------------------------------
-            // CASE A: 켜지는 중 (STARTING)
-            // -------------------------------------------------------
-            if ( ProcessState.STARTING.getValue().equals(dbStatus)) {
+            ProcessStatus processStatus = statusPorts.get(processInfo.getPort());
+
+            if(ObjectUtils.isEmpty(processStatus)){
+                processStatus =
+                        ProcessStatus
+                                .builder()
+                                .port(processInfo.getPort())
+                                .processName(processInfo.getProcessName())
+                                //.status()
+                                //.pid();
+                                //.startRequestTime()
+                                //.startTime()
+                                //.endRequestTime()
+                                //.endTime()
+                                .build();
                 if (isPortUp) {
                     // 포트가 열렸다! -> RUNNING으로 변경
-                    ps.setStatus(ProcessState.RUNNING.getValue());
-                    ps.setStartTime(currentTime);
-                    log.info("[{}] Start Complete. Changed to RUNNING.", ps.getProcessName());
+                    processStatus.setStatus(ProcessState.RUNNING.getValue());
+                    processStatus.setStartTime(currentTime);
+                    processStatus.setPid(pid.intValue());
+                    log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
 
                     processStatusHistory =
                             ProcessStatusHistory.builder()
                                     .eventTime(currentTime)
                                     .port(port)
                                     .pid(pid.intValue())
-                                    .processName(ps.getProcessName())
+                                    .processName(processStatus.getProcessName())
                                     .status(ProcessState.RUNNING.getValue())
                                     .startTime(currentTime)
                                     .build();
-                }
-                // 아직 안 열렸으면? -> 그냥 둠 (다음 스케줄러가 또 확인)
-                // 만약 START_REQUEST_TIME이 5분 지났는데도 안 켜지면 STOPPED로 바꾸는 타임아웃 로직 추가 가능
-            }
-
-            // -------------------------------------------------------
-            // CASE B: 꺼지는 중 (STOPPING)
-            // -------------------------------------------------------
-            else if ( ProcessState.STOPPING.getValue().equals(dbStatus)) {
-                if (!isPidAlive && !isPortUp) {
-                    // PID도 없고 포트도 닫혔다! -> STOPPED로 변경
-                    ps.setStatus( ProcessState.DOWN.getValue());
-                    ps.setEndTime(currentTime);
-                    ps.setPid(null); // PID 초기화
-                    log.info("[{}] Stop Complete. Changed to STOPPED.", ps.getProcessName());
-                    processStatusHistory =
-                            ProcessStatusHistory.builder()
-                                    .eventTime(currentTime)
-                                    .port(port)
-                                    .processName(ps.getProcessName())
-                                    .status(ProcessState.DOWN.getValue())
-                                    .endTime(currentTime)
-                                    .build();
-                }
-            }
-
-            // -------------------------------------------------------
-            // CASE C: 잘 돌고 있어야 함 (RUNNING) -> 근데 죽었나? (Health Check)
-            // -------------------------------------------------------
-            else if (ProcessState.RUNNING.getValue().equals(dbStatus)) {
-                if (!isPortUp) {
-                    // 어? DB는 RUNNING인데 포트가 죽었네? (비정상 종료 감지)
-                    log.error("[{}] Detected Abnormal Shutdown!", ps.getProcessName());
-                    ps.setStatus(ProcessState.DOWN.getValue());
-                    ps.setEndTime(currentTime);
-                    ps.setPid(null);
+                }else{
+                    log.error("[{}] Detected Abnormal Shutdown!", processStatus.getProcessName());
+                    processStatus.setStatus(ProcessState.DOWN.getValue());
+                    processStatus.setEndTime(currentTime);
+                    processStatus.setPid(null);
 
                     processStatusHistory =
                             ProcessStatusHistory.builder()
                                     .eventTime(currentTime)
                                     .port(port)
-                                    .processName(ps.getProcessName())
+                                    .processName(processStatus.getProcessName())
                                     .status(ProcessState.DOWN.getValue())
                                     .endTime(currentTime)
                                     .build();
                 }
-            }
 
-            // -------------------------------------------------------
-            // CASE D: 꺼져 있어야 함 (STOPPED) -> 근데 켜졌나? (외부에서 켰을 때)
-            // -------------------------------------------------------
-            else if (ProcessState.DOWN.getValue().equals(dbStatus)) {
-                if (isPortUp) {
-                    // 누가 몰래 켰다! (동기화)
-                    ps.setStatus(ProcessState.RUNNING.getValue());
-                    ps.setStartTime(currentTime);
-                    if (processId != null) {
-                        try {
-                            ps.setPid(processIdByInteger);
+
+            } else {
+                String dbStatus = processStatus.getStatus();
+
+                // -------------------------------------------------------
+                // CASE A: 켜지는 중 (STARTING)
+                // -------------------------------------------------------
+                if ( ProcessState.STARTING.getValue().equals(dbStatus)) {
+                    if (isPortUp) {
+                        // 포트가 열렸다! -> RUNNING으로 변경
+                        processStatus.setStatus(ProcessState.RUNNING.getValue());
+                        processStatus.setStartTime(currentTime);
+                        log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
+
+                        processStatusHistory =
+                                ProcessStatusHistory.builder()
+                                        .eventTime(currentTime)
+                                        .port(port)
+                                        .pid(pid.intValue())
+                                        .processName(processStatus.getProcessName())
+                                        .status(ProcessState.RUNNING.getValue())
+                                        .startTime(currentTime)
+                                        .build();
+                    } else {
+                        // 포트가 아직 안 열렸을 때: 요청 시간으로부터 3분이 지났는지 체크
+                        LocalDateTime requestTime = processStatus.getStartRequestTime();
+
+                        if (requestTime != null && requestTime.plusMinutes(gracePeriodMinutes).isBefore(currentTime)) {
+                            processStatus.setStatus(ProcessState.DOWN.getValue());
+                            processStatus.setStartTime(currentTime);
+                            log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
                             processStatusHistory =
                                     ProcessStatusHistory.builder()
                                             .eventTime(currentTime)
                                             .port(port)
-                                            .pid(processIdByInteger)
-                                            .processName(ps.getProcessName())
+                                            .pid(pid.intValue())
+                                            .processName(processStatus.getProcessName())
                                             .status(ProcessState.DOWN.getValue())
                                             .startTime(currentTime)
                                             .build();
-                        } catch (NumberFormatException e) {
-                            log.warn("PID parsing failed for port {}", port);
+                        }
+                        else{
+                            // 3분이 안 지났으면 아무것도 안 함 (STARTING 상태 유지)
+                            log.info("[{}] Still Starting... waiting for grace period.", processStatus.getProcessName());
+                        }
+                    }
+                }
+
+                // -------------------------------------------------------
+                // CASE B: 꺼지는 중 (STOPPING)
+                // -------------------------------------------------------
+                else if ( ProcessState.STOPPING.getValue().equals(dbStatus)) {
+                    if (!isPidAlive && !isPortUp) {
+                        // PID도 없고 포트도 닫혔다! -> STOPPED로 변경
+                        processStatus.setStatus( ProcessState.DOWN.getValue());
+                        processStatus.setEndTime(currentTime);
+                        processStatus.setPid(null); // PID 초기화
+                        log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
+                        processStatusHistory =
+                                ProcessStatusHistory.builder()
+                                        .eventTime(currentTime)
+                                        .port(port)
+                                        .processName(processStatus.getProcessName())
+                                        .status(ProcessState.DOWN.getValue())
+                                        .endTime(currentTime)
+                                        .build();
+                    }
+                    else {
+                        // 아직 살아있을 때: 요청 시간으로부터 3분이 지났는지 체크
+                        LocalDateTime requestTime = processStatus.getEndRequestTime();
+                        if (requestTime != null && requestTime.plusMinutes(gracePeriodMinutes).isBefore(currentTime)) {
+                            processStatus.setStatus( ProcessState.RUNNING.getValue());
+                            processStatus.setEndTime(currentTime);
+                            processStatus.setPid(pid.intValue()); // PID 초기화
+                            log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
+                            processStatusHistory =
+                                    ProcessStatusHistory.builder()
+                                            .eventTime(currentTime)
+                                            .port(port)
+                                            .processName(processStatus.getProcessName())
+                                            .status(ProcessState.RUNNING.getValue())
+                                            .endTime(currentTime)
+                                            .build();
+                        }else {
+                            // 3분이 안 지났으면 아무것도 안 함 (STOPPING 상태 유지)
+                            log.info("[{}] Still Stopping... waiting for grace period.", processStatus.getProcessName());
+                        }
+                    }
+                }
+
+                // -------------------------------------------------------
+                // CASE C: 잘 돌고 있어야 함 (RUNNING) -> 근데 죽었나? (Health Check)
+                // -------------------------------------------------------
+                else if (ProcessState.RUNNING.getValue().equals(dbStatus)) {
+                    if (!isPortUp) {
+                        // 어? DB는 RUNNING인데 포트가 죽었네? (비정상 종료 감지)
+                        log.error("[{}] Detected Abnormal Shutdown!", processStatus.getProcessName());
+                        processStatus.setStatus(ProcessState.DOWN.getValue());
+                        processStatus.setEndTime(currentTime);
+                        processStatus.setPid(null);
+
+                        processStatusHistory =
+                                ProcessStatusHistory.builder()
+                                        .eventTime(currentTime)
+                                        .port(port)
+                                        .processName(processStatus.getProcessName())
+                                        .status(ProcessState.DOWN.getValue())
+                                        .endTime(currentTime)
+                                        .build();
+                    }
+                }
+
+                // -------------------------------------------------------
+                // CASE D: 꺼져 있어야 함 (STOPPED) -> 근데 켜졌나? (외부에서 켰을 때)
+                // -------------------------------------------------------
+                else if (ProcessState.DOWN.getValue().equals(dbStatus)) {
+                    if (isPortUp) {
+                        // 누가 몰래 켰다! (동기화)
+                        processStatus.setStatus(ProcessState.RUNNING.getValue());
+                        processStatus.setStartTime(currentTime);
+                        if (processId != null) {
+                            try {
+                                processStatus.setPid(processIdByInteger);
+                                processStatusHistory =
+                                        ProcessStatusHistory.builder()
+                                                .eventTime(currentTime)
+                                                .port(port)
+                                                .pid(processIdByInteger)
+                                                .processName(processStatus.getProcessName())
+                                                .status(ProcessState.DOWN.getValue())
+                                                .startTime(currentTime)
+                                                .build();
+                            } catch (NumberFormatException e) {
+                                log.warn("PID parsing failed for port {}", port);
+                            }
                         }
                     }
                 }
@@ -471,7 +568,8 @@ public class ProcessService {
             if(ObjectUtils.isNotEmpty(processStatusHistory)){
                 processStatusService.save(processStatusHistory);
             }
-            processStatusService.save(ps);
+            processStatusService.save(processStatus);
         }
+
     }
 }

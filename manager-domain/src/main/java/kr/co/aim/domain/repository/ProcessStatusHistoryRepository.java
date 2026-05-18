@@ -1,5 +1,5 @@
 package kr.co.aim.domain.repository;
-import kr.co.aim.common.vo.ProcessStatusHistoryConditionVo;
+import kr.co.aim.common.condition.ProcessStatusHistoryCondition;
 import kr.co.aim.domain.model.ProcessStatusHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,5 +16,7 @@ public interface ProcessStatusHistoryRepository {
      * @return 모든 프로세스 info List
      */
     ProcessStatusHistory save(ProcessStatusHistory processStatusHistory);
+
+    Page<ProcessStatusHistory> findProcessStatusHistoryWithConditions(ProcessStatusHistoryCondition condition, Pageable pageable);
 
 }

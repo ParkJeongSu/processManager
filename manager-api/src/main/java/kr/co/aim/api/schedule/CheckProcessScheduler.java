@@ -14,7 +14,7 @@ public class CheckProcessScheduler {
 
     private final ProcessService processService;
 
-    @Scheduled(fixedDelay = 5000) // 5초마다 실행
+    @Scheduled(fixedDelay = 30000) // 5초마다 실행
     @SchedulerLock(name = "checkProcessStatus",
             lockAtMostFor = "PT2M",     // 작업 최장 소요시간 + 버퍼
             lockAtLeastFor = "PT30S")    // 최소 간격(선택)

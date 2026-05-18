@@ -1,7 +1,8 @@
 package kr.co.aim.api.service;
 
 import kr.co.aim.common.enums.ProcessState;
-import kr.co.aim.common.vo.ProcessControlRequestVo;
+import kr.co.aim.common.condition.ProcessControlRequestCondition;
+import kr.co.aim.common.condition.ProcessStatusHistoryCondition;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.model.ProcessStatus;
 import kr.co.aim.domain.model.ProcessStatusHistory;
@@ -10,12 +11,13 @@ import kr.co.aim.domain.repository.ProcessStatusRepository;
 import kr.co.aim.infra.persistence.mapper.ProcessStatusMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,6 +88,11 @@ public class ProcessStatusService {
         return processStatusHistoryRepository.save(processStatusHistory);
     }
 
+    @Transactional(readOnly = true)
+    public Page<ProcessStatusHistory> findProcessStatusHistoryWithConditions(ProcessStatusHistoryCondition condition, Pageable pageable){
+        return processStatusHistoryRepository.findProcessStatusHistoryWithConditions(condition, pageable);
+    }
+
     @Transactional
     public void checkStoppingStatus(int port) {
         // 1. ProcessStatus 조회 및 업데이트
@@ -142,7 +149,7 @@ public class ProcessStatusService {
      * 독립적인 트랜잭션으로 즉시 커밋됨 (Propagation.REQUIRES_NEW)
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markAsDown(int port, ProcessControlRequestVo vo) {
+    public void markAsDown(int port, ProcessControlRequestCondition vo) {
 
         String userId = vo.getUserId();
         String eventName = vo.getEventName();

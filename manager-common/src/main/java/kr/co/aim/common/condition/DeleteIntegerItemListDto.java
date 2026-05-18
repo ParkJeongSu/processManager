@@ -1,4 +1,4 @@
-package kr.co.aim.api.dto;
+package kr.co.aim.common.condition;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

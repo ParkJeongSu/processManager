@@ -1,9 +1,8 @@
 package kr.co.aim.api.service;
 
-import kr.co.aim.api.dto.ProcessInfoUpdateRequestDto;
-import kr.co.aim.common.vo.ProcessInfoCreateRequestVo;
-import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
-import kr.co.aim.common.vo.ProcessInfoUpdateRequestVo;
+import kr.co.aim.common.condition.ProcessInfoCreateRequestCondition;
+import kr.co.aim.common.condition.ProcessInfoSearchCondition;
+import kr.co.aim.common.condition.ProcessInfoUpdateRequestCondition;
 import kr.co.aim.domain.command.ProcessInfoCreateCommand;
 import kr.co.aim.domain.command.ProcessInfoUpdateCommand;
 import kr.co.aim.domain.model.ProcessInfo;
@@ -27,7 +26,7 @@ public class ProcessInfoService {
     private final ProcessInfoMapper processInfoMapper;
 
     @Transactional // 이 메소드가 하나의 트랜잭션으로 동작하도록 보장합니다.
-    public ProcessInfo createProcessInfo(ProcessInfoCreateRequestVo vo) {
+    public ProcessInfo createProcessInfo(ProcessInfoCreateRequestCondition vo) {
         // 1. Repository를 통해 Domain 객체를 가져온다.
 
         Optional<ProcessInfo> optionalProcessInfo = processInfoRepository.findByPort(vo.getPort());
@@ -54,16 +53,16 @@ public class ProcessInfoService {
     }
 
     @Transactional
-    public void createProcessInfo(List<ProcessInfoCreateRequestVo> voList) {
+    public void createProcessInfo(List<ProcessInfoCreateRequestCondition> voList) {
         if(CollectionUtils.isNotEmpty(voList)){
-            for(ProcessInfoCreateRequestVo vo : voList){
+            for(ProcessInfoCreateRequestCondition vo : voList){
                 createProcessInfo(vo);
             }
         }
     }
 
     @Transactional
-    public ProcessInfo changeProcessInfo(ProcessInfoUpdateRequestVo vo) {
+    public ProcessInfo changeProcessInfo(ProcessInfoUpdateRequestCondition vo) {
         Integer port = vo.getPort();
         String systemName = vo.getSystemName();
         String processGroupName = vo.getProcessGroupName();
@@ -112,7 +111,7 @@ public class ProcessInfoService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProcessInfo> findProcessInfoList(ProcessInfoSearchConditionVo condition, Pageable pageable) {
+    public Page<ProcessInfo> findProcessInfoList(ProcessInfoSearchCondition condition, Pageable pageable) {
         //1. Repository에서 Page<Entity>를 조회합니다.
 
         Page<ProcessInfo> page = processInfoRepository.findProcessInfoWithConditions(condition,pageable);

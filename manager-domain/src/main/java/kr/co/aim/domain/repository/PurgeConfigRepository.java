@@ -2,6 +2,7 @@ package kr.co.aim.domain.repository;
 import kr.co.aim.domain.model.PurgeConfig;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 알람 저장소의 기능을 정의하는 인터페이스.
@@ -15,11 +16,15 @@ public interface PurgeConfigRepository {
      */
     List<PurgeConfig> findAll();
 
+    Optional<PurgeConfig> findById(Integer id);
+
     /**
      * 모든 PurgeConfig를 찾습니다.
      * @return 모든 PurgeConfig List
      */
     PurgeConfig save(PurgeConfig purgeConfig);
+
+    void deleteAllByIdInBatch(List<Integer>ids);
 
 
 }

@@ -6,7 +6,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import kr.co.aim.common.vo.ProcessInfoSearchConditionVo;
+import kr.co.aim.common.condition.ProcessInfoSearchCondition;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.repository.ProcessInfoRepository;
 import kr.co.aim.infra.persistence.entity.ProcessInfoEntity;
@@ -77,7 +77,7 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
     }
 
     @Override
-    public Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchConditionVo condition, Pageable pageable) {
+    public Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchCondition condition, Pageable pageable) {
         JPAQuery<ProcessInfoEntity> query = queryFactory
                 .select(processInfoEntity)
                 .from(processInfoEntity)

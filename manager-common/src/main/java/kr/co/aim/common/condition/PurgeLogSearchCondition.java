@@ -1,4 +1,4 @@
-package kr.co.aim.common.vo;
+package kr.co.aim.common.condition;
 
 
 import lombok.*;
@@ -9,8 +9,9 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PurgeLogVo {
-
+public class PurgeLogSearchCondition {
+    private LocalDateTime fromEventTime;
+    private LocalDateTime toEventTime;
     private Long id;
     private Integer purgeConfigId;
     private String batchId;
