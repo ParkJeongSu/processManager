@@ -20,6 +20,10 @@ import java.time.LocalDateTime;
 public class ProcessStatusEntity {
 
     @Id
+    @Column(name = "ID")
+    private Long id;
+
+    @Column(name = "PORT")
     private Integer port; // 예: 8081
 
     @Column(name = "PROCESS_NAME")
@@ -30,6 +34,9 @@ public class ProcessStatusEntity {
 
     @Column(name = "PID")
     private Integer pid; // 예: 844512
+
+    @Column(name = "LAST_EVENT_USER")
+    private String lastEventUser;
 
     @Column(name = "START_REQUEST_TIME")
     private LocalDateTime startRequestTime;

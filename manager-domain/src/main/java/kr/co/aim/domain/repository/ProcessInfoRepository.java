@@ -44,7 +44,7 @@ public interface ProcessInfoRepository {
      */
     List<ProcessInfo> findBySystemName(String systemName);
 
-    void deleteAllByIdInBatch(List<Integer>ids);
+    void deleteAllByIdInBatch(List<Long>ids);
 
     Page<ProcessInfo> findProcessInfoWithConditions(ProcessInfoSearchCondition condition, Pageable pageable);
 

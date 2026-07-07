@@ -26,7 +26,7 @@ public class PurgeConfigRepositoryImpl implements PurgeConfigRepository {
     }
 
     @Override
-    public Optional<PurgeConfig> findById(Integer id) {
+    public Optional<PurgeConfig> findById(Long id) {
         return purgeConfigJpaRepository.findById(id).map(purgeConfigMapper::toDomain);
     }
 
@@ -38,7 +38,7 @@ public class PurgeConfigRepositoryImpl implements PurgeConfigRepository {
     }
 
     @Override
-    public void deleteAllByIdInBatch(List<Integer> ids) {
+    public void deleteAllByIdInBatch(List<Long> ids) {
         purgeConfigJpaRepository.deleteAllByIdInBatch(ids);
     }
 }

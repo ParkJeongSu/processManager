@@ -1,5 +1,5 @@
 server:
-  port: 11401
+  port: 11405
 spring:
   application:
     name: process-manager
@@ -33,31 +33,38 @@ spring:
       username: db2inst1 # 실제 DB2 계정으로 변경해주세요
       password: 1234 # 실제 DB2 비밀번호로 변경해주세요
       driver-class-name: com.ibm.db2.jcc.DB2Driver
+      # ★ 로컬 DB2 LUW용 방언 설정 추가
+      dialect: org.hibernate.dialect.DB2Dialect
       hikari:
         initialization-fail-timeout: 0
         pool-name: db2-pool
         maximum-pool-size: 20          # ← 최대 커넥션 수
         minimum-idle: 10               # ← 최소 유휴 커넥션 수
         connection-timeout: 30000      # ← 커넥션 획득 대기시간
+        connection-test-query: "SELECT 1 FROM SYSIBM.SYSDUMMY1"
         idle-timeout: 600000
         max-lifetime: 1800000
         leak-detection-threshold: 2000   # ← ms 단위
-  #    db2:
-  #      # 1. 프리픽스가 jdbc:as400 으로 바뀝니다.
-  #      # 2. 뒤에 옵션들(naming=sql 등)은 JPA를 쓸 때 필수입니다.
-  #      jdbc-url: jdbc:as400://[실제_AS400_IP]/[기본_라이브러리명];naming=sql;errors=full;prompt=false;ccsid=933
-  #      schema-name: TESTDB # Db2용 스키마 (운영 환경에서는 라이브러리명)
-  #      username: [ AS400_계정 ]
-  #      password: [ AS400_비밀번호 ]
-  #      driver-class-name: com.ibm.as400.access.AS400JDBCDriver # 드라이버 클래스명을 jt400 전용으로 변경합니다.
-  #      hikari:
-  #        pool-name: as400-pool
-  #        maximum-pool-size: 20
-  #        minimum-idle: 10
-  #        connection-timeout: 30000
-  #        idle-timeout: 600000
-  #        max-lifetime: 1800000
-  #        leak-detection-threshold: 2000
+#    db2:
+#      # 1. 프리픽스가 jdbc:as400 으로 바뀝니다.
+#      # 2. 뒤에 옵션들(naming=sql 등)은 JPA를 쓸 때 필수입니다.
+#      jdbc-url: jdbc:as400://10.184.4.5;libraries=AIMTESTTK;naming=sql;errors=full;prompt=false;ccsid=933;thread used=false;
+#      schema-name: AIMTESTTK # Db2용 스키마 (운영 환경에서는 라이브러리명)
+#      username: AIM_PROD
+#      password: dpdlatltm
+#      driver-class-name: com.ibm.as400.access.AS400JDBCDriver # 드라이버 클래스명을 jt400 전용으로 변경합니다.
+#      # ★ 테스트 서버 AS400용 방언 설정 추가 (Hibernate 버전에 맞게 선택)
+#      dialect: org.hibernate.dialect.DB2iDialect
+#      hikari:
+#        pool-name: as400-pool
+#        maximum-pool-size: 20
+#        minimum-idle: 10
+#        connection-timeout: 30000
+#        connection-test-query: "SELECT 1 FROM QSYS2.QSQPTABL"
+#        allow-pool-suspension: false
+#        idle-timeout: 600000
+#        max-lifetime: 1800000
+#        leak-detection-threshold: 2000
   jpa:
     hibernate:
       jdbc:
@@ -71,6 +78,7 @@ spring:
         #        format_sql: true # SQL 로그를 예쁘게 포맷팅
         #        highlight_sql: true # ANSI 컬러 하이라이트 (지원 콘솔일 때)
         generate_statistics: true        # 통계 수집 (org.hibernate.stat 로깅과 함께)
+        globally_quoted_identifiers: true
     show-sql: true # 실행되는 SQL 쿼리를 로그로 보여줌
   mail:
     host: smtp.naver.com

@@ -12,15 +12,14 @@ import java.time.LocalDateTime;
 @Builder
 @ToString
 public class ProcessStatusHistory {
-
-    private LocalDateTime eventTime;
+    private Long id;
     private Integer port; // 예: 8081
     private String processName; // 예: pex11
     private String status;
     private Integer pid; // 예: 8081
+    private String lastEventUser;
     private LocalDateTime startRequestTime;
     private LocalDateTime startTime;
     private LocalDateTime endRequestTime;
     private LocalDateTime endTime;
-    //TODO: eventUser 추가하기
 }

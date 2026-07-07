@@ -49,7 +49,7 @@ public class PurgeController {
     // 1. 요청 접수: PATCH /api/process-info/{port}
     @PatchMapping("/{id}")
     public ResponseEntity<Page<PurgeConfig>> changePurgeConfig(
-            @PathVariable("id") Integer id,
+            @PathVariable("id") Long id,
             @RequestBody PurgeConfigUpdateDto dto
     ) {
         dto.setId(id);

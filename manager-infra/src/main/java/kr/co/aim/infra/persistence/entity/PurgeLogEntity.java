@@ -24,7 +24,7 @@ public class PurgeLogEntity {
     private Long id;
 
     @Column(name = "PURGE_CONFIG_ID")
-    private Integer purgeConfigId;
+    private Long purgeConfigId;
 
     @Column(name = "BATCH_ID")
     private String batchId;

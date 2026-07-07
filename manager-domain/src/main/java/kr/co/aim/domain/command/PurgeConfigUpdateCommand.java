@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PurgeConfigUpdateCommand {
-    private Integer id;
+    private Long id;
     private String dbName;
     private String schemaName;
     private String tableName;

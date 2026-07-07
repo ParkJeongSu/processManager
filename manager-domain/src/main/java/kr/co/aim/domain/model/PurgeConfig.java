@@ -1,6 +1,8 @@
 package kr.co.aim.domain.model;
 
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Id;
 import kr.co.aim.common.Utils.TsidUtils;
 import kr.co.aim.domain.command.PurgeConfigCreateCommand;
 import kr.co.aim.domain.command.PurgeConfigUpdateCommand;
@@ -16,7 +18,7 @@ import java.time.LocalDateTime;
 @ToString
 public class PurgeConfig {
 
-    private Integer id;
+    private Long id;
     private String dbName;
     private String schemaName;
     private String tableName;
@@ -50,7 +52,7 @@ public class PurgeConfig {
     public static PurgeConfig create(PurgeConfigCreateCommand command) {
         return PurgeConfig
                 .builder()
-                .id(TsidUtils.nextId().intValue())
+                .id(TsidUtils.nextId())
                 .dbName(command.getDbName())
                 .schemaName(command.getSchemaName())
                 .tableName(command.getTableName())

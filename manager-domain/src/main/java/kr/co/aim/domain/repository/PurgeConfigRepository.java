@@ -16,7 +16,7 @@ public interface PurgeConfigRepository {
      */
     List<PurgeConfig> findAll();
 
-    Optional<PurgeConfig> findById(Integer id);
+    Optional<PurgeConfig> findById(Long id);
 
     /**
      * 모든 PurgeConfig를 찾습니다.
@@ -24,7 +24,7 @@ public interface PurgeConfigRepository {
      */
     PurgeConfig save(PurgeConfig purgeConfig);
 
-    void deleteAllByIdInBatch(List<Integer>ids);
+    void deleteAllByIdInBatch(List<Long>ids);
 
 
 }

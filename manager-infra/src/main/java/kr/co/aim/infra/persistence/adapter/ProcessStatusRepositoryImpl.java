@@ -36,7 +36,7 @@ public class ProcessStatusRepositoryImpl implements ProcessStatusRepository {
 
     @Override
     public Optional<ProcessStatus> findByPort(Integer port) {
-        return processStatusJpaRepository.findById(port).map(processStatusMapper::toDomain);
+        return processStatusJpaRepository.findByPort(port).map(processStatusMapper::toDomain);
     }
 
     @Override

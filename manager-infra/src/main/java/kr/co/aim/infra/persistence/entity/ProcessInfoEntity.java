@@ -18,6 +18,10 @@ import lombok.NoArgsConstructor;
 public class ProcessInfoEntity {
 
     @Id
+    @Column(name = "ID")
+    private Long id;
+
+    @Column(name = "PORT")
     private Integer port; // 예: 8081
 
     @Column(name = "SYSTEM_NAME")

@@ -10,5 +10,5 @@ import java.util.List;
 @Setter
 @NoArgsConstructor//(access = AccessLevel.PROTECTED) // JPA Entity 등을 위한 기본 생성자
 public class DeleteIntegerItemListDto {
-    private List<Integer> ids;
+    private List<Long> ids;
 }

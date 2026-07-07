@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class PurgeLog {
 
     private Long id;
-    private Integer purgeConfigId;
+    private Long purgeConfigId;
     private String batchId;
     private String tableName;
     private LocalDateTime startDateTime;

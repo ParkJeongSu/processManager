@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class PurgeLogCreateCommand {
     private Long id;
-    private Integer purgeConfigId;
+    private Long purgeConfigId;
     private String batchId;
     private String tableName;
     private LocalDateTime startDateTime;

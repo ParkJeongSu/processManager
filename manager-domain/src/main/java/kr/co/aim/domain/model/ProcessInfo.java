@@ -1,5 +1,6 @@
 package kr.co.aim.domain.model;
 
+import kr.co.aim.common.Utils.TsidUtils;
 import kr.co.aim.domain.command.ProcessInfoCreateCommand;
 import kr.co.aim.domain.command.ProcessInfoUpdateCommand;
 import lombok.*;
@@ -11,19 +12,21 @@ import lombok.*;
 @Builder
 @ToString
 public class ProcessInfo {
-    private Integer port;
-    private String systemName;
-    private String fileName;
-    private String processGroupName;
-    private String processName;
+    private Long id;
+    private Integer port; // 예: 8081
+    private String systemName; // 예: pex11
+    private String fileName;  // 예: mng.jar
+    private String processGroupName; // 예: pex
+    private String processName; // 예: pex11
     private String description;
-    private String copyDir;
-    private String workingDir;
+    private String copyDir;  // 예: C:\mng\pex11
+    private String workingDir;  // 예: C:\mng\pex11
     private String batchDir;  // 예: C:\mng\
     private String batchName;  // 예: run.bat
 
     public static ProcessInfo create(ProcessInfoCreateCommand command){
         return ProcessInfo.builder()
+                .id(TsidUtils.nextId())
                 .port(command.getPort())
                 .systemName(command.getSystemName())
                 .fileName(command.getFileName())

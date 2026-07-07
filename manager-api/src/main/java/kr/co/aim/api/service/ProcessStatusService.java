@@ -3,11 +3,13 @@ package kr.co.aim.api.service;
 import kr.co.aim.common.enums.ProcessState;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
 import kr.co.aim.common.condition.ProcessStatusHistoryCondition;
+import kr.co.aim.domain.command.ProcessStatusCreateCommand;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.model.ProcessStatus;
 import kr.co.aim.domain.model.ProcessStatusHistory;
 import kr.co.aim.domain.repository.ProcessStatusHistoryRepository;
 import kr.co.aim.domain.repository.ProcessStatusRepository;
+import kr.co.aim.infra.persistence.mapper.ProcessStatusHistoryMapper;
 import kr.co.aim.infra.persistence.mapper.ProcessStatusMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -28,6 +30,7 @@ public class ProcessStatusService {
     private final ProcessStatusRepository processStatusRepository;
     private final ProcessStatusHistoryRepository processStatusHistoryRepository;
     private final ProcessStatusMapper processStatusMapper;
+    private final ProcessStatusHistoryMapper processStatusHistoryMapper;
     private final ProcessInfoService processInfoService;
     private final ConnectionCheckService connectionCheckService;
 
@@ -121,25 +124,29 @@ public class ProcessStatusService {
             ps = optionalProcessStatus.get();
         }
         if (optionalProcessStatus.isEmpty()){
-            ps = ProcessStatus
-                    .builder()
-                    .port(port)
-                    .processName(processInfo.getProcessName())
-                    .build();
+            ProcessStatusCreateCommand command =
+                    ProcessStatusCreateCommand
+                            .builder()
+                            //.id()
+                            .port(port)
+                            .processName(processInfo.getProcessName())
+                            //.status()
+                            //.pid()
+                            //.lastEventUser()
+                            //.startRequestTime()
+                            //.startTime()
+                            //.endRequestTime()
+                            //.endTime()
+                            .build();
+            ps = ProcessStatus.create(command);
         }
         // STOPPING 상태로 변경 (ProcessState Enum에 STOPPING이 있다고 가정)
         ps.setStatus(ProcessState.STOPPING.getValue());
         ps.setEndRequestTime(currentTime); // 수정 시간 업데이트
-        this.save(ps);
+        ps = this.save(ps);
 
         // 2. History 추가
-        ProcessStatusHistory history = ProcessStatusHistory.builder()
-                .eventTime(currentTime)
-                .port(port)
-                .processName(processInfo.getProcessName())
-                .status(ProcessState.STOPPING.getValue()) // 히스토리에도 STOPPING 기록
-                .endRequestTime(currentTime)
-                .build();
+        ProcessStatusHistory history = processStatusHistoryMapper.toHistoryEntity(ps);
 
         this.save(history);
     }
@@ -173,25 +180,30 @@ public class ProcessStatusService {
             ps = optionalProcessStatus.get();
         }
         if (optionalProcessStatus.isEmpty()){
-            ps = ProcessStatus
-                    .builder()
-                    .port(port)
-                    .processName(processName)
-                    .build();
+
+            ProcessStatusCreateCommand command =
+                    ProcessStatusCreateCommand
+                            .builder()
+                            //.id()
+                            .port(port)
+                            .processName(processName)
+                            //.status()
+                            //.pid()
+                            //.lastEventUser()
+                            //.startRequestTime()
+                            //.startTime()
+                            //.endRequestTime()
+                            //.endTime()
+                            .build();
+            ps = ProcessStatus.create(command);
         }
         // DOWN 상태로 변경
         ps.setStatus(ProcessState.DOWN.getValue());
         ps.setEndRequestTime(currentTime); // 수정 시간 업데이트
-        this.save(ps);
+        ps = this.save(ps);
 
         // 2. History 추가
-        ProcessStatusHistory history = ProcessStatusHistory.builder()
-                .eventTime(currentTime)
-                .port(port)
-                .processName(processName)
-                .status(ProcessState.DOWN.getValue()) // 히스토리에도 DOWN 기록
-                .endRequestTime(currentTime)
-                .build();
+        ProcessStatusHistory history = processStatusHistoryMapper.toHistoryEntity(ps);
 
         this.save(history);
     }

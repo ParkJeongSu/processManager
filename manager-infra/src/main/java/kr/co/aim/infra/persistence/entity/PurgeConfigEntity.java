@@ -21,7 +21,7 @@ public class PurgeConfigEntity {
 
     @Id
     @Column(name = "ID")
-    private Integer id;
+    private Long id;
 
     @Column(name = "DB_NAME")
     private String dbName;

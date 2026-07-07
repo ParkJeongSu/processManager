@@ -101,7 +101,7 @@ public class ProcessInfoService {
     }
 
     @Transactional
-    public void deleteProcessInfoByIds(List<Integer> ids) {
+    public void deleteProcessInfoByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return; // 삭제할 ID가 없으면 아무 작업도 하지 않음
         }

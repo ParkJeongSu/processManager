@@ -32,7 +32,7 @@ public class PurgeConfigService {
     }
 
     @Transactional
-    public void deleteAllByIdInBatch(List<Integer>ids){
+    public void deleteAllByIdInBatch(List<Long>ids){
         purgeConfigRepository.deleteAllByIdInBatch(ids);
     }
 

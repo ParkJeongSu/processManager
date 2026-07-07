@@ -120,7 +120,7 @@ public class ProcessStatusHistoryRepositoryImpl implements ProcessStatusHistoryR
 
         // 기본 정렬 조건 (만약 정렬 조건이 없다면 id 내림차순)
         if (orders.isEmpty()) {
-            orders.add(new OrderSpecifier(Order.ASC, processStatusHistoryEntity.eventTime));
+            orders.add(new OrderSpecifier(Order.DESC, processStatusHistoryEntity.id));
         }
 
         return orders.toArray(new OrderSpecifier[0]);
@@ -143,7 +143,7 @@ public class ProcessStatusHistoryRepositoryImpl implements ProcessStatusHistoryR
         if (fromEventTime == null) {
             return null;
         }
-        return processStatusHistoryEntity.eventTime.goe(fromEventTime);
+        return processStatusHistoryEntity.startTime.goe(fromEventTime);
     }
 
     /**
@@ -153,6 +153,6 @@ public class ProcessStatusHistoryRepositoryImpl implements ProcessStatusHistoryR
         if (toEventTime == null) {
             return null;
         }
-        return processStatusHistoryEntity.eventTime.loe(toEventTime);
+        return processStatusHistoryEntity.startTime.loe(toEventTime);
     }
 }

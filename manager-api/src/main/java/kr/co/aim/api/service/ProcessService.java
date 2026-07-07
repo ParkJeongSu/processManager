@@ -2,6 +2,7 @@ package kr.co.aim.api.service;
 
 import kr.co.aim.common.enums.SystemName;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
+import kr.co.aim.infra.persistence.mapper.ProcessStatusHistoryMapper;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class ProcessService {
     private final ProcessStatusService processStatusService;
     private final ConnectionCheckService connectionCheckService;
     private final ProcessAsyncService processAsyncService;
+    private final ProcessStatusHistoryMapper processStatusHistoryMapper;
 
     public List<ProcessStatusResponseDto> getProcessList(){
         List<ProcessStatusResponseDto> resultList = new ArrayList<>();
@@ -192,11 +194,10 @@ public class ProcessService {
         processStatus.setStatus(ProcessState.STARTING.getValue());
         processStatus.setStartRequestTime(currentTime);
         // 재시작일 수 있으니 이전 종료 시간 등은 초기화하지 않음 (정책에 따라 결정)
-        processStatusService.save(processStatus);
+        processStatus = processStatusService.save(processStatus);
 
         ProcessStatusHistory processStatusHistory =
                 ProcessStatusHistory.builder()
-                        .eventTime(currentTime)
                         .port(port)
                         .processName(processInfo.getProcessName())
                         .status(ProcessState.STARTING.getValue())
@@ -399,30 +400,13 @@ public class ProcessService {
                     processStatus.setStartTime(currentTime);
                     processStatus.setPid(pid.intValue());
                     log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
-
-                    processStatusHistory =
-                            ProcessStatusHistory.builder()
-                                    .eventTime(currentTime)
-                                    .port(port)
-                                    .pid(pid.intValue())
-                                    .processName(processStatus.getProcessName())
-                                    .status(ProcessState.RUNNING.getValue())
-                                    .startTime(currentTime)
-                                    .build();
+                    processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                 }else{
                     log.error("[{}] Detected Abnormal Shutdown!", processStatus.getProcessName());
                     processStatus.setStatus(ProcessState.DOWN.getValue());
                     processStatus.setEndTime(currentTime);
                     processStatus.setPid(null);
-
-                    processStatusHistory =
-                            ProcessStatusHistory.builder()
-                                    .eventTime(currentTime)
-                                    .port(port)
-                                    .processName(processStatus.getProcessName())
-                                    .status(ProcessState.DOWN.getValue())
-                                    .endTime(currentTime)
-                                    .build();
+                    processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                 }
 
 
@@ -438,16 +422,7 @@ public class ProcessService {
                         processStatus.setStatus(ProcessState.RUNNING.getValue());
                         processStatus.setStartTime(currentTime);
                         log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
-
-                        processStatusHistory =
-                                ProcessStatusHistory.builder()
-                                        .eventTime(currentTime)
-                                        .port(port)
-                                        .pid(pid.intValue())
-                                        .processName(processStatus.getProcessName())
-                                        .status(ProcessState.RUNNING.getValue())
-                                        .startTime(currentTime)
-                                        .build();
+                        processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                     } else {
                         // 포트가 아직 안 열렸을 때: 요청 시간으로부터 3분이 지났는지 체크
                         LocalDateTime requestTime = processStatus.getStartRequestTime();
@@ -456,15 +431,7 @@ public class ProcessService {
                             processStatus.setStatus(ProcessState.DOWN.getValue());
                             processStatus.setStartTime(currentTime);
                             log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
-                            processStatusHistory =
-                                    ProcessStatusHistory.builder()
-                                            .eventTime(currentTime)
-                                            .port(port)
-                                            .pid(pid.intValue())
-                                            .processName(processStatus.getProcessName())
-                                            .status(ProcessState.DOWN.getValue())
-                                            .startTime(currentTime)
-                                            .build();
+                            processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                         }
                         else{
                             // 3분이 안 지났으면 아무것도 안 함 (STARTING 상태 유지)
@@ -483,14 +450,7 @@ public class ProcessService {
                         processStatus.setEndTime(currentTime);
                         processStatus.setPid(null); // PID 초기화
                         log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
-                        processStatusHistory =
-                                ProcessStatusHistory.builder()
-                                        .eventTime(currentTime)
-                                        .port(port)
-                                        .processName(processStatus.getProcessName())
-                                        .status(ProcessState.DOWN.getValue())
-                                        .endTime(currentTime)
-                                        .build();
+                        processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                     }
                     else {
                         // 아직 살아있을 때: 요청 시간으로부터 3분이 지났는지 체크
@@ -500,14 +460,7 @@ public class ProcessService {
                             processStatus.setEndTime(currentTime);
                             processStatus.setPid(pid.intValue()); // PID 초기화
                             log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
-                            processStatusHistory =
-                                    ProcessStatusHistory.builder()
-                                            .eventTime(currentTime)
-                                            .port(port)
-                                            .processName(processStatus.getProcessName())
-                                            .status(ProcessState.RUNNING.getValue())
-                                            .endTime(currentTime)
-                                            .build();
+                            processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                         }else {
                             // 3분이 안 지났으면 아무것도 안 함 (STOPPING 상태 유지)
                             log.info("[{}] Still Stopping... waiting for grace period.", processStatus.getProcessName());
@@ -525,15 +478,7 @@ public class ProcessService {
                         processStatus.setStatus(ProcessState.DOWN.getValue());
                         processStatus.setEndTime(currentTime);
                         processStatus.setPid(null);
-
-                        processStatusHistory =
-                                ProcessStatusHistory.builder()
-                                        .eventTime(currentTime)
-                                        .port(port)
-                                        .processName(processStatus.getProcessName())
-                                        .status(ProcessState.DOWN.getValue())
-                                        .endTime(currentTime)
-                                        .build();
+                        processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                     }
                 }
 
@@ -548,15 +493,7 @@ public class ProcessService {
                         if (processId != null) {
                             try {
                                 processStatus.setPid(processIdByInteger);
-                                processStatusHistory =
-                                        ProcessStatusHistory.builder()
-                                                .eventTime(currentTime)
-                                                .port(port)
-                                                .pid(processIdByInteger)
-                                                .processName(processStatus.getProcessName())
-                                                .status(ProcessState.DOWN.getValue())
-                                                .startTime(currentTime)
-                                                .build();
+                                processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                             } catch (NumberFormatException e) {
                                 log.warn("PID parsing failed for port {}", port);
                             }

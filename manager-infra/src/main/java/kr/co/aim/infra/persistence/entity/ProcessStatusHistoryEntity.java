@@ -20,8 +20,8 @@ import java.time.LocalDateTime;
 public class ProcessStatusHistoryEntity {
 
     @Id
-    @Column(name = "EVENT_TIME")
-    private LocalDateTime eventTime;
+    @Column(name = "ID")
+    private Long id;
 
     @Column(name = "PORT")
     private Integer port; // 예: 8081
@@ -34,6 +34,9 @@ public class ProcessStatusHistoryEntity {
 
     @Column(name = "PID")
     private Integer pid; // 예: 8081
+
+    @Column(name = "LAST_EVENT_USER")
+    private String lastEventUser;
 
     @Column(name = "START_REQUEST_TIME")
     private LocalDateTime startRequestTime;

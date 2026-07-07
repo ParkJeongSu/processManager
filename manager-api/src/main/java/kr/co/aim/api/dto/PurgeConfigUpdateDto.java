@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @ToString
 public class PurgeConfigUpdateDto {
 
-    private Integer id;
+    private Long id;
     private String dbName;
     private String schemaName;
     private String tableName;
@@ -32,7 +32,7 @@ public class PurgeConfigUpdateDto {
     public static PurgeConfigUpdateCommand toPurgeConfigUpdateCommand(PurgeConfigUpdateDto dto) {
         return PurgeConfigUpdateCommand
                 .builder()
-                .id(TsidUtils.nextId().intValue())
+                .id(TsidUtils.nextId())
                 .dbName(dto.getDbName())
                 .schemaName(dto.getSchemaName())
                 .tableName(dto.getTableName())

@@ -54,7 +54,7 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
 
     @Override
     public Optional<ProcessInfo> findByPort(Integer port) {
-        return processInfoJpaRepository.findById(port).map(processInfoMapper::toDomain);
+        return processInfoJpaRepository.findByPort(port).map(processInfoMapper::toDomain);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class ProcessInfoRepositoryImpl implements ProcessInfoRepository {
     }
 
     @Override
-    public void deleteAllByIdInBatch(List<Integer> ids) {
+    public void deleteAllByIdInBatch(List<Long> ids) {
         processInfoJpaRepository.deleteAllByIdInBatch(ids);
     }
 

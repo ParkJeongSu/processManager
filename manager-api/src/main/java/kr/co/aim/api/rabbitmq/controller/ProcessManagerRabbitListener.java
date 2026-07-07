@@ -30,63 +30,55 @@ public class ProcessManagerRabbitListener {
             concurrency = "10",
             containerFactory = "rabbitListenerContainerFactory"
     )
-    @SneakyThrows
     public Object process(org.springframework.amqp.core.Message message) {
-        // 1. 바디를 꺼내서 직접 String으로 변환
-        String jsonString = new String(message.getBody(), StandardCharsets.UTF_8);
 
-        jsonUtils.writePrettyJson(jsonString);
+        try {
+            // 1. 바디를 꺼내서 직접 String으로 변환
+            String jsonString = new String(message.getBody(), StandardCharsets.UTF_8);
 
-        String correlation = message.getMessageProperties().getCorrelationId();
-        String reply = message.getMessageProperties().getReplyTo();
+            jsonUtils.writePrettyJson(jsonString);
 
-        log.info("correlation: {}",correlation);
-        log.info("reply: {}",reply);
+            String correlation = message.getMessageProperties().getCorrelationId();
+            String reply = message.getMessageProperties().getReplyTo();
 
-        // 1. JSON 트리를 읽어 헤더 부분만 추출
-        // 아예 header 부분에 있는 메시지로 로직처리
-        /*
-        JsonNode rootNode = objectMapper.readTree(jsonString);
-        JsonNode headerNode = rootNode.get("header"); // "header" 필드만 접근
+            log.info("correlation: {}",correlation);
+            log.info("reply: {}",reply);
 
-        if (headerNode == null) {
-            log.error("❌ Message header is missing!");
-            return null;
-        }
-        // 1. MessageName 추출
-        Header messageHeader = objectMapper.treeToValue(headerNode, Header.class);
-        */
+            MessageHeader messageHeader = objectMapper.readValue(jsonString, MessageHeader.class);
+            //String messageName = messageHeader.getHeader().getMessageName();
+            String messageName = messageHeader.getMessageName();
+            log.info("messageName : {}", messageName);
+            // 2. Dispatcher를 통해 적절한 핸들러 찾기
+            MessageHandler<String> handler = messageDispatcher.getHandler(messageName);
 
-        MessageHeader messageHeader = objectMapper.readValue(jsonString, MessageHeader.class);
-        //String messageName = messageHeader.getHeader().getMessageName();
-        String messageName = messageHeader.getMessageName();
-        log.info("messageName : {}", messageName);
-        // 2. Dispatcher를 통해 적절한 핸들러 찾기
-        MessageHandler<String> handler = messageDispatcher.getHandler(messageName);
+            Object replyObject = null;
+            if (handler != null) {
+                // 3. 핸들러에게 작업 위임
+                replyObject = handler.handle(jsonString);
+            } else {
+                log.warn("⚠️ No handler found for messageName: {}", messageName);
+            }
 
-        Object replyObject = null;
-        if (handler != null) {
-            // 3. 핸들러에게 작업 위임
-            replyObject = handler.handle(jsonString);
-        } else {
-            log.warn("⚠️ No handler found for messageName: {}", messageName);
-        }
-        if (replyObject != null) {
-            // 1. 응답 시 요청의 correlationId를 그대로 유지해야 함
-            String correlationId = message.getMessageProperties().getCorrelationId();
-            String replyTo = message.getMessageProperties().getReplyTo();
+            if (replyObject != null) {
+                // 1. 응답 시 요청의 correlationId를 그대로 유지해야 함
+                String correlationId = message.getMessageProperties().getCorrelationId();
+                String replyTo = message.getMessageProperties().getReplyTo();
 
-            if (replyTo != null) {
-                log.info("🚀 Replying to queue: {} with correlationId: {}", replyTo, correlationId);
+                if (replyTo != null) {
+                    log.info("🚀 Replying to queue: {} with correlationId: {}", replyTo, correlationId);
 
-                // 2. replyTo 주소를 Routing Key로 사용 (Exchange는 기본 익스체인지 "" 사용)
-                rabbitTemplate.convertAndSend("", replyTo, replyObject, m -> {
-                    m.getMessageProperties().setCorrelationId(correlationId);
-                    return m;
-                });
+                    // 2. replyTo 주소를 Routing Key로 사용 (Exchange는 기본 익스체인지 "" 사용)
+                    rabbitTemplate.convertAndSend("", replyTo, replyObject, m -> {
+                        m.getMessageProperties().setCorrelationId(correlationId);
+                        return m;
+                    });
+                }
             }
         }
-        //return replyObject;
+        catch (Exception e) {
+            log.error("❌ [비동기 시스템 에러] 메시지 처리 중 오류가 발생하여 작업을 롤백합니다. (비동기이므로 응답 생략) 원인: {}", e.getMessage(), e);
+        }
+
         return null;
     }
 }
