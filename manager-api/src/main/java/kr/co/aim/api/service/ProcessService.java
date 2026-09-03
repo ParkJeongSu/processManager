@@ -1,7 +1,9 @@
 package kr.co.aim.api.service;
 
+import kr.co.aim.common.enums.ProcessName;
 import kr.co.aim.common.enums.SystemName;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
+import kr.co.aim.domain.command.ProcessStatusCreateCommand;
 import kr.co.aim.infra.persistence.mapper.ProcessStatusHistoryMapper;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -187,22 +189,21 @@ public class ProcessService {
             }
         }
         if(optionalProcessStatus.isEmpty()){
-            processStatus = new ProcessStatus();
-            processStatus.setPort(port);
-            processStatus.setProcessName(processInfo.getProcessName());
+            ProcessStatusCreateCommand command =
+                    ProcessStatusCreateCommand
+                            .builder()
+                            .port(port)
+                            .processName(processInfo.getProcessName())
+                            .lastEventUser(vo.getEventUser())
+                            .build();
+            processStatus = ProcessStatus.create(command);
+
         }
         processStatus.setStatus(ProcessState.STARTING.getValue());
         processStatus.setStartRequestTime(currentTime);
         // 재시작일 수 있으니 이전 종료 시간 등은 초기화하지 않음 (정책에 따라 결정)
         processStatus = processStatusService.save(processStatus);
-
-        ProcessStatusHistory processStatusHistory =
-                ProcessStatusHistory.builder()
-                        .port(port)
-                        .processName(processInfo.getProcessName())
-                        .status(ProcessState.STARTING.getValue())
-                        .startRequestTime(currentTime)
-                        .build();
+        ProcessStatusHistory processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
         processStatusService.save(processStatusHistory);
 
         try {
@@ -320,16 +321,50 @@ public class ProcessService {
             // DB 업데이트 실패해도 실제 프로세스 종료는 시도할지 여부는 정책에 따라 결정
         }
 
-
-
-
         try {
-            // 1. 종료 요청
-            // url : graceful shutdown url
-            String url = "http://localhost:" + port + "/wcs-web" + "/stop";
-            log.info("종료 요청 전송: {}", url);
-            processAsyncService.performShutdown(port,url,requestVo);
-            log.info("Process Stop Command Sent: {}", processInfo.getProcessName());
+            if(
+                    StringUtils.isNotBlank(processInfo.getStopBatchName())
+            ) {
+                // 2. 종료 요청 IOCON
+                // batch file 실행
+
+                // 2-2. 프로세스 실행
+                List<String> commands = new ArrayList<>();
+                commands.add("cmd.exe");
+                commands.add("/c");
+                commands.add("start");
+                commands.add("/b");
+                // 배치 파일의 절대 경로 생성
+                String batchFullPath = processInfo.getBatchDir() + File.separator + processInfo.getStopBatchName();
+                commands.add(batchFullPath);
+
+                ProcessBuilder pb = new ProcessBuilder(commands);
+
+                // [중요] 배치 파일이 있는 경로로 '이동'하여 실행하는 효과
+                File batchDirectory = new File(processInfo.getBatchDir());
+                if (!batchDirectory.exists()) {
+                    batchDirectory.mkdirs();
+                }
+                pb.directory(batchDirectory);
+
+                // 로그를 저장할 파일 생성 (예: C:\mng\logs\process_start.log)
+                File logFile = new File(processInfo.getBatchDir(), "batch_exec.log");
+
+                pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile));
+                pb.redirectError(ProcessBuilder.Redirect.appendTo(logFile));
+                // TODO: 추후 테스트가 완료되면 아래로 로그 삭제
+                //pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                //pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+
+                pb.start();
+            }else{
+                // 1. 종료 요청 MNG, WCS-WEB ..
+                // url : graceful shutdown url
+                String url = "http://localhost:" + port + "/wcs-web" + "/api/v1/application/shutdown";
+                log.info("종료 요청 전송: {}", url);
+                processAsyncService.performShutdown(port,url,requestVo);
+                log.info("Process Stop Command Sent: {}", processInfo.getProcessName());
+            }
 
             LocalDateTime currentTime = LocalDateTime.now();
 
@@ -382,18 +417,14 @@ public class ProcessService {
             ProcessStatus processStatus = statusPorts.get(processInfo.getPort());
 
             if(ObjectUtils.isEmpty(processStatus)){
-                processStatus =
-                        ProcessStatus
+                ProcessStatusCreateCommand command =
+                        ProcessStatusCreateCommand
                                 .builder()
-                                .port(processInfo.getPort())
+                                .port(port)
                                 .processName(processInfo.getProcessName())
-                                //.status()
-                                //.pid();
-                                //.startRequestTime()
-                                //.startTime()
-                                //.endRequestTime()
-                                //.endTime()
                                 .build();
+                processStatus = ProcessStatus.create(command);
+
                 if (isPortUp) {
                     // 포트가 열렸다! -> RUNNING으로 변경
                     processStatus.setStatus(ProcessState.RUNNING.getValue());

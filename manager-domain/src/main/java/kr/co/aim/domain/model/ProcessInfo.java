@@ -1,5 +1,6 @@
 package kr.co.aim.domain.model;
 
+import jakarta.persistence.Column;
 import kr.co.aim.common.Utils.TsidUtils;
 import kr.co.aim.domain.command.ProcessInfoCreateCommand;
 import kr.co.aim.domain.command.ProcessInfoUpdateCommand;
@@ -23,6 +24,7 @@ public class ProcessInfo {
     private String workingDir;  // 예: C:\mng\pex11
     private String batchDir;  // 예: C:\mng\
     private String batchName;  // 예: run.bat
+    private String stopBatchName;  // 예: stop.bat
 
     public static ProcessInfo create(ProcessInfoCreateCommand command){
         return ProcessInfo.builder()
@@ -37,6 +39,7 @@ public class ProcessInfo {
                 .workingDir(command.getWorkingDir())
                 .batchDir(command.getBatchDir())
                 .batchName(command.getBatchName())
+                .stopBatchName(command.getStopBatchName())
                 .build();
     }
 
@@ -50,5 +53,6 @@ public class ProcessInfo {
         this.setWorkingDir(command.getWorkingDir());
         this.setBatchDir(command.getBatchDir());
         this.setBatchName(command.getBatchName());
+        this.setStopBatchName(command.getStopBatchName());
     }
 }

@@ -1,5 +1,5 @@
 server:
-  port: 11405
+  port: 11421
 spring:
   application:
     name: process-manager
@@ -94,40 +94,29 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: admin
-    password: admin
+    username: eosuser
+    password: eosuser
     listener:
       simple:
         concurrency: 10 # 시작 시 생성되는 소비자(consumer) 스레드 수
         max-concurrency: 10 # 부하 증가 시 최대 확장 가능한 소비자 스레드 수
+        prefetch: 1 # 스레드당 딱 1개씩만 사전 인출
+        shutdown-timeout: 60s               # 종료 시 60초 대기 (setShutdownTimeout)
+        force-stop-for-concurrency: false # 종료 시 리스너가 진행 중인 작업을 마칠 때까지 기다리게 함
+        missing-queues-fatal: true # 리슨하려는 큐가 없으면 치명적(Fatal) 에러로 간주하고 앱 종료 시도
+        default-requeue-rejected: false # 메시지 처리 중 에러가 났을 때, 다시 큐에 넣지 않음 (중요!)
+        retry:
+          enabled: false # 재시도 기능을 아예 끔
 custom:
   rabbitmq:
     exchange:
-      pex: "system.direct" # rpc.exchange
-      tex: "system.direct"
-      dead: "system.direct"      # <- 그대로 유지 (알기 쉬운 이름)
-      eas: "system.direct"
-      wms: "system.direct"
-      wcs: "system.direct"
-      manti: "system.direct"
+      dead: "system.direct"
       manager: "system.direct"
     queue:
-      pex: "q.pex.request" # PEX.request.queue
-      tex: "q.tex.request" # TEX.request.queue
       dead: "DEAD.request.queue"
-      eas: "q.eas.request"
-      wms: "q.wms.request"
-      wcs: "q.wcs.request"
-      manti: "q.manti.request"
       manager: "q.manager.request"
     routing:
-      pex: "key.pex"
-      tex: "key.tex"
-      dead: "DEAD.request.queue"           # <- 이 값이 문제의 원인이었지만, 이 이름이 더 좋음!
-      eas: "key.eas"
-      wms: "key.wms"
-      wcs: "key.wcs"
-      manti: "key.manti"
+      dead: "DEAD.request.queue"
       manager: "key.manager"
 schedule:
   purge:

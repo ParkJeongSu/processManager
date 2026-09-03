@@ -26,9 +26,7 @@ public class ProcessManagerRabbitListener {
 
     @RabbitListener(
             id = "manager-Listener",
-            queues= "${custom.rabbitmq.queue.manager}",
-            concurrency = "10",
-            containerFactory = "rabbitListenerContainerFactory"
+            queues= "${custom.rabbitmq.queue.manager}"
     )
     public Object process(org.springframework.amqp.core.Message message) {
 

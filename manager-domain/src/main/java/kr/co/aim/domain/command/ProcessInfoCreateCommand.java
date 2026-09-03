@@ -18,4 +18,5 @@ public class ProcessInfoCreateCommand {
     private final String workingDir;
     private final String batchDir;  // 예: C:\mng\
     private final String batchName;  // 예: run.bat
+    private final String stopBatchName;  // 예: stop.bat
 }

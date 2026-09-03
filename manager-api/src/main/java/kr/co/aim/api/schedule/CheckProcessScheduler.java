@@ -7,7 +7,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-//@Component
+@Component
 @Slf4j
 @RequiredArgsConstructor
 public class CheckProcessScheduler {

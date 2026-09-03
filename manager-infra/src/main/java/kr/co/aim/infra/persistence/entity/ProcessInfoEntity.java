@@ -51,4 +51,7 @@ public class ProcessInfoEntity {
     @Column(name = "BATCH_NAME")
     private String batchName;  // 예: run.bat
 
+    @Column(name = "STOP_BATCH_NAME")
+    private String stopBatchName;  // 예: stop.bat
+
 }

@@ -11,7 +11,7 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
-// 1. 새로운 설정 객체(Settings) 생성 및 타임아웃 설정
+        // 1. 새로운 설정 객체(Settings) 생성 및 타임아웃 설정
         // 이 과정에서 람다식을 배제하고 Builder 패턴의 메서드 체이닝을 활용합니다.
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(Duration.ofSeconds(10))
