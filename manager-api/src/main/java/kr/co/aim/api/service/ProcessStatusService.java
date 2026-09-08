@@ -3,6 +3,7 @@ package kr.co.aim.api.service;
 import kr.co.aim.common.enums.ProcessState;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
 import kr.co.aim.common.condition.ProcessStatusHistoryCondition;
+import kr.co.aim.common.enums.SystemName;
 import kr.co.aim.domain.command.ProcessStatusCreateCommand;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.model.ProcessStatus;
@@ -48,8 +49,8 @@ public class ProcessStatusService {
                 ProcessStatus
                         .builder()
                         //.port()
-                        .processName("GAL")
-                        .status(galStatus ? "UP" : "DOWN"   )
+                        .processName(SystemName.GAL.getValue())
+                        .status(galStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue() )
                         //.pid()
                         //.startRequestTime()
                         //.startTime()
@@ -63,8 +64,8 @@ public class ProcessStatusService {
                 ProcessStatus
                         .builder()
                         //.port()
-                        .processName("MANTI")
-                        .status(mantiStatus ? "UP" : "DOWN"   )
+                        .processName(SystemName.MANTI.getValue())
+                        .status(mantiStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue()  )
                         //.pid()
                         //.startRequestTime()
                         //.startTime()

@@ -1,6 +1,5 @@
 package kr.co.aim.api.service;
 
-import kr.co.aim.common.enums.ProcessName;
 import kr.co.aim.common.enums.SystemName;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
 import kr.co.aim.domain.command.ProcessStatusCreateCommand;
@@ -22,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,39 +40,39 @@ public class ProcessService {
     private final ProcessAsyncService processAsyncService;
     private final ProcessStatusHistoryMapper processStatusHistoryMapper;
 
-    public List<ProcessStatusResponseDto> getProcessList(){
+    public List<ProcessStatusResponseDto> getProcessList() {
         List<ProcessStatusResponseDto> resultList = new ArrayList<>();
         List<ProcessInfo> processes = processInfoService.findAll();
         List<ProcessStatus> processStatuses = processStatusService.findAll();
-        Map<Integer,ProcessStatus> statusPorts = new HashMap<>();
+        Map<Integer, ProcessStatus> statusPorts = new HashMap<>();
         for (ProcessStatus status : processStatuses) {
-            statusPorts.put(status.getPort(),status);
+            statusPorts.put(status.getPort(), status);
         }
-        for(ProcessInfo p : processes){
+        for (ProcessInfo p : processes) {
             boolean isExist = statusPorts.containsKey(p.getPort());
-            if(isExist){
+            if (isExist) {
                 ProcessStatus ps = statusPorts.get(p.getPort());
-                ProcessStatusResponseDto dto = new ProcessStatusResponseDto();
-                dto.setPort(p.getPort());
-                dto.setSystemName(p.getSystemName());
-                dto.setProcessGroupName(p.getProcessGroupName());
-                dto.setProcessName(p.getProcessName());
-                dto.setPid(ps.getPid());
-                dto.setStatus(ps.getStatus());
-                dto.setDescription(p.getDescription());
+                ProcessStatusResponseDto dto = ProcessStatusResponseDto.builder()
+                        .port(ps.getPort())
+                        .systemName(p.getSystemName())
+                        .processGroupName(p.getProcessGroupName())
+                        .processName(p.getProcessName())
+                        .pid(ps.getPid())
+                        .status(ps.getStatus())
+                        .description(p.getDescription())
+                        .build();
 
-                if(ProcessState.STARTING.getValue().equals(ps.getStatus())){
+                if (ProcessState.STARTING.getValue().equals(ps.getStatus())) {
                     dto.setStartRequestTime(ps.getStartRequestTime());
-                } else if(ProcessState.RUNNING.getValue().equals(ps.getStatus())){
+                } else if (ProcessState.RUNNING.getValue().equals(ps.getStatus())) {
                     dto.setStartTime(ps.getStartTime());
-                } else if(ProcessState.DOWN.getValue().equals(ps.getStatus())){
+                } else if (ProcessState.DOWN.getValue().equals(ps.getStatus())) {
                     dto.setEndTime(ps.getEndTime());
                 } else if (ProcessState.STOPPING.getValue().equals(ps.getStatus())) {
                     dto.setEndRequestTime(ps.getEndRequestTime());
                 }
                 resultList.add(dto);
-            }
-            else {
+            } else {
                 ProcessStatusResponseDto dto = ProcessStatusResponseDto.builder()
                         .port(p.getPort())
                         .systemName(p.getSystemName())
@@ -83,139 +83,129 @@ public class ProcessService {
                         .build();
                 resultList.add(dto);
             }
-
         }
-
 
         // Gal
         boolean galStatus = connectionCheckService.getGalDbStatus();
         ProcessStatusResponseDto galDto = new ProcessStatusResponseDto();
-        galDto.setSystemName("GAL");
-        galDto.setProcessGroupName("GAL");
-        galDto.setProcessName("GAL");
-        galDto.setStatus(galStatus ? "UP" : "DOWN");
+        galDto.setSystemName(SystemName.GAL.getValue());
+        galDto.setProcessGroupName(SystemName.GAL.getValue());
+        galDto.setProcessName(SystemName.GAL.getValue());
+        galDto.setStatus(galStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue());
         resultList.add(galDto);
 
         // Manti
         boolean mantiStatus = connectionCheckService.getMantiStatus();
         ProcessStatusResponseDto mantiDto = new ProcessStatusResponseDto();
-        mantiDto.setSystemName("MANTI");
-        mantiDto.setProcessGroupName("MANTI");
-        mantiDto.setProcessName("MANTI");
-        mantiDto.setStatus(mantiStatus ? "UP" : "DOWN");
+        mantiDto.setSystemName(SystemName.MANTI.getValue());
+        mantiDto.setProcessGroupName(SystemName.MANTI.getValue());
+        mantiDto.setProcessName(SystemName.MANTI.getValue());
+        mantiDto.setStatus(mantiStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue());
         resultList.add(mantiDto);
 
         return resultList;
     }
 
-    // 상태 체크: 해당 포트가 열려있는지 확인
-    private boolean isRunning(int port) {
-        // try-with-resources (Java 7+) 자동 close
-        try (Socket socket = new Socket("localhost", port)) {
-            return true; // 접속 성공 = 프로세스 떠있음
-        } catch (IOException e) {
-            return false; // 접속 실패 = 프로세스 죽어있음
-        }
-    }
-
-    // PID로 프로세스 생존 확인
-    private boolean isProcessAlive(long pid) {
-        if (pid <= 0) return false;
-        return ProcessHandle.of(pid).isPresent(); // OS에 해당 PID가 있는지 확인
-    }
-
-    // [핵심] netstat 명령어로 포트를 쓰는 PID 찾기
-    private String findPidByPort(int port) {
-        try {
-            // 윈도우 명령어: netstat -ano | findstr :포트번호
-            ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "netstat -ano | findstr :" + port);
-            Process process = pb.start();
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                // 결과 예시: "  TCP    0.0.0.0:8081           0.0.0.0:0              LISTENING       12345"
-                // 맨 마지막 숫자가 PID 입니다.
-                if (line.contains("LISTENING")) {
-                    String[] parts = line.trim().split("\\s+"); // 공백으로 쪼개기
-                    return parts[parts.length - 1]; // 마지막 요소가 PID
-                }
-            }
-        } catch (Exception e) {
-            log.error(e.getMessage());
-        }
-        return null; // 못 찾음
-    }
-
-    // [유틸] 포트 체크 (Java Socket 이용 - 매우 빠름)
+    /**
+     * 포트 소켓 응답 검사 (TIME_WAIT 방지 및 타임아웃 500ms 설정)
+     */
     private boolean isPortOpen(int port) {
-        try (Socket socket = new Socket("127.0.0.1", port)) {
+        try (Socket socket = new Socket()) {
+            socket.setSoLinger(true, 0);
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 500);
             return true;
         } catch (IOException e) {
             return false;
         }
     }
 
+    /**
+     * 대상 프로세스 식별 (파일명 및 Java 프로세스 안전 대조)
+     */
+    private boolean isTargetProcess(long pid, String expectedFileName) {
+        if (pid <= 0 || StringUtils.isBlank(expectedFileName)) {
+            return false;
+        }
+
+        Optional<ProcessHandle> ph = ProcessHandle.of(pid);
+        if (ph.isEmpty() || !ph.get().isAlive()) {
+            return false;
+        }
+
+        ProcessHandle.Info info = ph.get().info();
+        String target = expectedFileName.toLowerCase();
+
+        // 1. 전체 커맨드라인(인자 포함) 검사
+        if (info.commandLine().isPresent()) {
+            if (info.commandLine().get().toLowerCase().contains(target)) {
+                return true;
+            }
+        }
+
+        // 2. 실행 바이너리 검사
+        if (info.command().isPresent()) {
+            String command = info.command().get().toLowerCase();
+            if (command.contains(target)) {
+                return true;
+            }
+            // 3. .jar 파일인데 권한 문제로 commandLine을 못 가져온 경우 java.exe 검증으로 Fallback
+            if (target.endsWith(".jar") && command.contains("java.exe")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /**
      * 프로세스 시작 로직
      */
     @Transactional
     public ProcessStatusResponseDto startProcess(int port, ProcessControlRequestCondition vo) {
-
         Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
-        if(optionalProcessInfo.isEmpty()){
+        if (optionalProcessInfo.isEmpty()) {
             throw new IllegalArgumentException("해당 포트(" + port + ")의 프로세스 설정 정보가 없습니다.");
         }
         ProcessInfo processInfo = optionalProcessInfo.get();
 
-        // 1. 방어 로직
-        if (isRunning(port)) {
+        if (isPortOpen(port)) {
             throw new IllegalStateException("이미 실행 중인 프로세스입니다. (Port: " + port + ")");
         }
         LocalDateTime currentTime = LocalDateTime.now();
 
-        // 1.1 방어로직 스케줄러가 State를 바꾼후 시작할 수 있게끔
         Optional<ProcessStatus> optionalProcessStatus = processStatusService.findByPort(port);
         ProcessStatus processStatus = null;
-        if(optionalProcessStatus.isPresent()){
+        if (optionalProcessStatus.isPresent()) {
             processStatus = optionalProcessStatus.get();
-            if(processStatus.getStatus().equals(ProcessState.STARTING.getValue())){
+            if (processStatus.getStatus().equals(ProcessState.STARTING.getValue())) {
                 throw new IllegalStateException("이미 실행 중인 프로세스입니다. (Port: " + port + ")");
-            }
-            else if(processStatus.getStatus().equals(ProcessState.STOPPING.getValue())){
+            } else if (processStatus.getStatus().equals(ProcessState.STOPPING.getValue())) {
                 throw new IllegalStateException("이미 종료 중인 프로세스입니다. (Port: " + port + ")");
             }
         }
-        if(optionalProcessStatus.isEmpty()){
-            ProcessStatusCreateCommand command =
-                    ProcessStatusCreateCommand
-                            .builder()
-                            .port(port)
-                            .processName(processInfo.getProcessName())
-                            .lastEventUser(vo.getEventUser())
-                            .build();
+        if (optionalProcessStatus.isEmpty()) {
+            ProcessStatusCreateCommand command = ProcessStatusCreateCommand.builder()
+                    .port(port)
+                    .processName(processInfo.getProcessName())
+                    .lastEventUser(vo.getEventUser())
+                    .build();
             processStatus = ProcessStatus.create(command);
-
         }
+
         processStatus.setStatus(ProcessState.STARTING.getValue());
         processStatus.setStartRequestTime(currentTime);
-        // 재시작일 수 있으니 이전 종료 시간 등은 초기화하지 않음 (정책에 따라 결정)
         processStatus = processStatusService.save(processStatus);
+
         ProcessStatusHistory processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
         processStatusService.save(processStatusHistory);
 
         try {
-            // 2-1. 파일 복사
+            // 파일 복사 로직
             String copyDirStr = processInfo.getCopyDir();
             String workDirStr = processInfo.getWorkingDir();
-            String fileName   = processInfo.getFileName();
+            String fileName = processInfo.getFileName();
 
-            if( StringUtils.isBlank(copyDirStr)){
-                // copyDirStr이 null 인 경우
-                // 복사 수행 안함
-            }else{
+            if (StringUtils.isNotBlank(copyDirStr)) {
                 Path sourcePath = Paths.get(copyDirStr, fileName);
                 Path targetPath = Paths.get(workDirStr, fileName);
                 File workingDirectory = new File(workDirStr);
@@ -223,61 +213,46 @@ public class ProcessService {
                 if (!Files.exists(sourcePath)) {
                     throw new IOException("원본 파일이 존재하지 않습니다: " + sourcePath);
                 }
-
                 if (!workingDirectory.exists()) {
                     workingDirectory.mkdirs();
                 }
-
-                if(StringUtils.isNotBlank(copyDirStr) || !StringUtils.equals(copyDirStr, workDirStr) ){
+                if (!StringUtils.equals(copyDirStr, workDirStr)) {
                     Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     log.info("File Copied: {} -> {}", sourcePath, targetPath);
                 }
             }
 
-            // 2-2. 프로세스 실행
+            // 프로세스 실행
             List<String> commands = new ArrayList<>();
             commands.add("cmd.exe");
             commands.add("/c");
             commands.add("start");
             commands.add("/b");
-            // 배치 파일의 절대 경로 생성
             String batchFullPath = processInfo.getBatchDir() + File.separator + processInfo.getBatchName();
             commands.add(batchFullPath);
 
-            // [분기 처리] MNG 시스템인 경우에만 아규먼트 추가
             if (StringUtils.equals(SystemName.MNG.getValue(), processInfo.getSystemName())) {
-                // 순서: 1. 작업디렉토리, 2. 파일명
                 commands.add(processInfo.getWorkingDir());
                 commands.add(processInfo.getFileName());
                 log.info("MNG System detected. Arguments added: {} {}", processInfo.getWorkingDir(), processInfo.getFileName());
             } else {
-                // 나머지 시스템은 아규먼트 없이 배치 파일만 실행
                 log.info("General System detected. Executing batch without extra arguments.");
             }
 
             ProcessBuilder pb = new ProcessBuilder(commands);
-
-            // [중요] 배치 파일이 있는 경로로 '이동'하여 실행하는 효과
             File batchDirectory = new File(processInfo.getBatchDir());
             if (!batchDirectory.exists()) {
                 batchDirectory.mkdirs();
             }
             pb.directory(batchDirectory);
 
-            // 로그를 저장할 파일 생성 (예: C:\mng\logs\process_start.log)
             File logFile = new File(processInfo.getBatchDir(), "batch_exec.log");
-
             pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile));
             pb.redirectError(ProcessBuilder.Redirect.appendTo(logFile));
-            // TODO: 추후 테스트가 완료되면 아래로 로그 삭제
-            //pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-            //pb.redirectError(ProcessBuilder.Redirect.DISCARD);
 
             pb.start();
-
             log.info("Process Started Command Sent: {}", processInfo.getProcessName());
 
-            // 4. 결과 Vo 반환
             return ProcessStatusResponseDto.builder()
                     .port(port)
                     .systemName(processInfo.getSystemName())
@@ -299,75 +274,54 @@ public class ProcessService {
      */
     @Transactional
     public ProcessStatusResponseDto stopProcess(int port, ProcessControlRequestCondition requestVo) {
-
-        if (!isRunning(port)) {
+        if (!isPortOpen(port)) {
             throw new IllegalStateException("이미 종료된 프로세스이거나 연결할 수 없습니다.");
         }
 
         Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
-
-        if(optionalProcessInfo.isEmpty()){
+        if (optionalProcessInfo.isEmpty()) {
             throw new IllegalArgumentException("설정 정보 없음");
         }
         ProcessInfo processInfo = optionalProcessInfo.get();
 
-        // 현재 stopping 하고 있는 명령어라면 종료
         processStatusService.checkStoppingStatus(port);
 
         try {
             processStatusService.markAsStopping(port, processInfo, requestVo.getEventUser());
         } catch (Exception e) {
             log.error("상태 업데이트(STOPPING) 실패 했으나 프로세스 종료는 계속 진행함", e);
-            // DB 업데이트 실패해도 실제 프로세스 종료는 시도할지 여부는 정책에 따라 결정
         }
 
         try {
-            if(
-                    StringUtils.isNotBlank(processInfo.getStopBatchName())
-            ) {
-                // 2. 종료 요청 IOCON
-                // batch file 실행
-
-                // 2-2. 프로세스 실행
+            if (StringUtils.isNotBlank(processInfo.getStopBatchName())) {
                 List<String> commands = new ArrayList<>();
                 commands.add("cmd.exe");
                 commands.add("/c");
                 commands.add("start");
                 commands.add("/b");
-                // 배치 파일의 절대 경로 생성
                 String batchFullPath = processInfo.getBatchDir() + File.separator + processInfo.getStopBatchName();
                 commands.add(batchFullPath);
 
                 ProcessBuilder pb = new ProcessBuilder(commands);
-
-                // [중요] 배치 파일이 있는 경로로 '이동'하여 실행하는 효과
                 File batchDirectory = new File(processInfo.getBatchDir());
                 if (!batchDirectory.exists()) {
                     batchDirectory.mkdirs();
                 }
                 pb.directory(batchDirectory);
 
-                // 로그를 저장할 파일 생성 (예: C:\mng\logs\process_start.log)
                 File logFile = new File(processInfo.getBatchDir(), "batch_exec.log");
-
                 pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile));
                 pb.redirectError(ProcessBuilder.Redirect.appendTo(logFile));
-                // TODO: 추후 테스트가 완료되면 아래로 로그 삭제
-                //pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-                //pb.redirectError(ProcessBuilder.Redirect.DISCARD);
 
                 pb.start();
-            }else{
-                // 1. 종료 요청 MNG, WCS-WEB ..
-                // url : graceful shutdown url
+            } else {
                 String url = "http://localhost:" + port + "/wcs-web" + "/api/v1/application/shutdown";
                 log.info("종료 요청 전송: {}", url);
-                processAsyncService.performShutdown(port,url,requestVo);
+                processAsyncService.performShutdown(port, url, requestVo);
                 log.info("Process Stop Command Sent: {}", processInfo.getProcessName());
             }
 
             LocalDateTime currentTime = LocalDateTime.now();
-
 
             return ProcessStatusResponseDto.builder()
                     .port(port)
@@ -387,157 +341,172 @@ public class ProcessService {
         }
     }
 
+    /**
+     * 현재 윈도우 OS에서 LISTENING 중인 모든 TCP 포트와 PID 매핑을 1회 일괄 수집
+     */
+    private Map<Integer, Long> getListeningPortPidMap() {
+        Map<Integer, Long> portPidMap = new HashMap<>();
+        ProcessBuilder pb = new ProcessBuilder("netstat", "-ano", "-p", "tcp");
+
+        try {
+            Process process = pb.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.startsWith("TCP") && line.contains("LISTENING")) {
+                        String[] tokens = line.split("\\s+");
+                        String localAddress = tokens[1];
+                        int colonIndex = localAddress.lastIndexOf(':');
+
+                        if (colonIndex != -1) {
+                            try {
+                                String portStr = localAddress.substring(colonIndex + 1);
+                                int port = Integer.parseInt(portStr.replaceAll("[^0-9]", ""));
+                                long pid = Long.parseLong(tokens[tokens.length - 1]);
+                                portPidMap.put(port, pid);
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            log.error("netstat 실행 중 오류 발생", e);
+        }
+
+        return portPidMap;
+    }
+
     @Transactional
     public void checkProcessStatus() {
         List<ProcessInfo> processInfoList = processInfoService.findAll();
         List<ProcessStatus> processStatusList = processStatusService.findAll();
 
-        Map<Integer,ProcessStatus> statusPorts = new HashMap<>();
+        Map<Integer, ProcessStatus> statusPorts = new HashMap<>();
         for (ProcessStatus status : processStatusList) {
-            statusPorts.put(status.getPort(),status);
+            statusPorts.put(status.getPort(), status);
         }
 
         LocalDateTime currentTime = LocalDateTime.now();
-        // 유예 기간 설정 (3분)
         long gracePeriodMinutes = 3;
 
+        // 루프 밖에서 netstat 1회 실행
+        Map<Integer, Long> currentListeningMap = getListeningPortPidMap();
 
-        for(ProcessInfo processInfo : processInfoList){
+        for (ProcessInfo processInfo : processInfoList) {
+            int port = processInfo.getPort();
+            Long activePid = currentListeningMap.get(port);
+
+            // 1) netstat 포트 점유 여부
+            boolean isListening = (activePid != null);
+            // 2) 실제 TCP 응답성(Hang 여부) 검증
+            boolean isPortUp = isListening && isPortOpen(port);
+            // 3) 프로그램 파일명 일치 여부 검증
+            boolean isGenuineProcess = isPortUp && isTargetProcess(activePid, processInfo.getFileName());
+
+            Long validPid = isGenuineProcess ? activePid : null;
+
+            ProcessStatus processStatus = statusPorts.get(port);
             ProcessStatusHistory processStatusHistory = null;
 
-            int port = processInfo.getPort();
-            String processId = this.findPidByPort(port);
-            Long pid = processId != null ? Long.parseLong(processId) : 0L;
-            Integer processIdByInteger = processId !=null ? Integer.parseInt(processId) :0;
-
-            // 1. 현재 물리적 상태 체크
-            boolean isPortUp = isPortOpen(port);
-            boolean isPidAlive = isProcessAlive(pid);
-
-            ProcessStatus processStatus = statusPorts.get(processInfo.getPort());
-
-            if(ObjectUtils.isEmpty(processStatus)){
-                ProcessStatusCreateCommand command =
-                        ProcessStatusCreateCommand
-                                .builder()
-                                .port(port)
-                                .processName(processInfo.getProcessName())
-                                .build();
+            if (ObjectUtils.isEmpty(processStatus)) {
+                ProcessStatusCreateCommand command = ProcessStatusCreateCommand.builder()
+                        .port(port)
+                        .processName(processInfo.getProcessName())
+                        .build();
                 processStatus = ProcessStatus.create(command);
 
-                if (isPortUp) {
-                    // 포트가 열렸다! -> RUNNING으로 변경
+                if (isGenuineProcess) {
                     processStatus.setStatus(ProcessState.RUNNING.getValue());
                     processStatus.setStartTime(currentTime);
-                    processStatus.setPid(pid.intValue());
-                    log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
+                    processStatus.setPid(validPid.intValue());
                     processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-                }else{
-                    log.error("[{}] Detected Abnormal Shutdown!", processStatus.getProcessName());
+                    log.info("[{}] 기동 확인 -> RUNNING 전환 (PID: {})", processStatus.getProcessName(), validPid);
+                } else {
                     processStatus.setStatus(ProcessState.DOWN.getValue());
                     processStatus.setEndTime(currentTime);
                     processStatus.setPid(null);
                     processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
+                    log.info("[{}] 정지 확인 -> DOWN 전환", processStatus.getProcessName());
                 }
-
-
             } else {
                 String dbStatus = processStatus.getStatus();
 
                 // -------------------------------------------------------
                 // CASE A: 켜지는 중 (STARTING)
                 // -------------------------------------------------------
-                if ( ProcessState.STARTING.getValue().equals(dbStatus)) {
-                    if (isPortUp) {
-                        // 포트가 열렸다! -> RUNNING으로 변경
+                if (ProcessState.STARTING.getValue().equals(dbStatus)) {
+                    if (isGenuineProcess) {
                         processStatus.setStatus(ProcessState.RUNNING.getValue());
                         processStatus.setStartTime(currentTime);
-                        log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
+                        processStatus.setPid(validPid.intValue());
+                        log.info("[{}] 정상 기동 확인 -> RUNNING 전환 (PID: {})", processStatus.getProcessName(), validPid);
                         processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                     } else {
-                        // 포트가 아직 안 열렸을 때: 요청 시간으로부터 3분이 지났는지 체크
                         LocalDateTime requestTime = processStatus.getStartRequestTime();
-
                         if (requestTime != null && requestTime.plusMinutes(gracePeriodMinutes).isBefore(currentTime)) {
                             processStatus.setStatus(ProcessState.DOWN.getValue());
-                            processStatus.setStartTime(currentTime);
-                            log.info("[{}] Start Complete. Changed to RUNNING.", processStatus.getProcessName());
+                            processStatus.setEndTime(currentTime);
+                            processStatus.setPid(null);
+                            log.error("[{}] 기동 시간 초과 (3분 경과) -> DOWN 처리", processStatus.getProcessName());
                             processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-                        }
-                        else{
-                            // 3분이 안 지났으면 아무것도 안 함 (STARTING 상태 유지)
-                            log.info("[{}] Still Starting... waiting for grace period.", processStatus.getProcessName());
                         }
                     }
                 }
-
                 // -------------------------------------------------------
                 // CASE B: 꺼지는 중 (STOPPING)
                 // -------------------------------------------------------
-                else if ( ProcessState.STOPPING.getValue().equals(dbStatus)) {
-                    if (!isPidAlive && !isPortUp) {
-                        // PID도 없고 포트도 닫혔다! -> STOPPED로 변경
-                        processStatus.setStatus( ProcessState.DOWN.getValue());
+                else if (ProcessState.STOPPING.getValue().equals(dbStatus)) {
+                    if (!isPortUp) {
+                        processStatus.setStatus(ProcessState.DOWN.getValue());
                         processStatus.setEndTime(currentTime);
-                        processStatus.setPid(null); // PID 초기화
-                        log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
+                        processStatus.setPid(null);
+                        log.info("[{}] 정상 종료 확인 -> DOWN 전환", processStatus.getProcessName());
                         processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-                    }
-                    else {
-                        // 아직 살아있을 때: 요청 시간으로부터 3분이 지났는지 체크
+                    } else {
                         LocalDateTime requestTime = processStatus.getEndRequestTime();
                         if (requestTime != null && requestTime.plusMinutes(gracePeriodMinutes).isBefore(currentTime)) {
-                            processStatus.setStatus( ProcessState.RUNNING.getValue());
-                            processStatus.setEndTime(currentTime);
-                            processStatus.setPid(pid.intValue()); // PID 초기화
-                            log.info("[{}] Stop Complete. Changed to STOPPED.", processStatus.getProcessName());
+                            processStatus.setStatus(ProcessState.RUNNING.getValue());
+                            processStatus.setPid(activePid.intValue());
+                            log.warn("[{}] 종료 실패 타임아웃 -> RUNNING 유지", processStatus.getProcessName());
                             processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-                        }else {
-                            // 3분이 안 지났으면 아무것도 안 함 (STOPPING 상태 유지)
-                            log.info("[{}] Still Stopping... waiting for grace period.", processStatus.getProcessName());
                         }
                     }
                 }
-
                 // -------------------------------------------------------
-                // CASE C: 잘 돌고 있어야 함 (RUNNING) -> 근데 죽었나? (Health Check)
+                // CASE C: 실행 중이어야 함 (RUNNING)
                 // -------------------------------------------------------
                 else if (ProcessState.RUNNING.getValue().equals(dbStatus)) {
-                    if (!isPortUp) {
-                        // 어? DB는 RUNNING인데 포트가 죽었네? (비정상 종료 감지)
-                        log.error("[{}] Detected Abnormal Shutdown!", processStatus.getProcessName());
+                    if (!isGenuineProcess) {
+                        log.error("[{}] 비정상 종료 감지! (응답 없음 또는 타깃 불일치)", processStatus.getProcessName());
                         processStatus.setStatus(ProcessState.DOWN.getValue());
                         processStatus.setEndTime(currentTime);
                         processStatus.setPid(null);
                         processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
+                    } else {
+                        if (processStatus.getPid() == null || processStatus.getPid() != validPid.intValue()) {
+                            processStatus.setPid(validPid.intValue());
+                        }
                     }
                 }
-
                 // -------------------------------------------------------
-                // CASE D: 꺼져 있어야 함 (STOPPED) -> 근데 켜졌나? (외부에서 켰을 때)
+                // CASE D: 꺼져 있어야 함 (DOWN) -> 외부에서 임의 기동 시
                 // -------------------------------------------------------
                 else if (ProcessState.DOWN.getValue().equals(dbStatus)) {
-                    if (isPortUp) {
-                        // 누가 몰래 켰다! (동기화)
+                    if (isGenuineProcess) {
+                        log.info("[{}] 외부 기동 감지 -> RUNNING 동기화 (PID: {})", processStatus.getProcessName(), validPid);
                         processStatus.setStatus(ProcessState.RUNNING.getValue());
                         processStatus.setStartTime(currentTime);
-                        if (processId != null) {
-                            try {
-                                processStatus.setPid(processIdByInteger);
-                                processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-                            } catch (NumberFormatException e) {
-                                log.warn("PID parsing failed for port {}", port);
-                            }
-                        }
+                        processStatus.setPid(validPid.intValue());
+                        processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
                     }
                 }
             }
 
-            if(ObjectUtils.isNotEmpty(processStatusHistory)){
+            if (ObjectUtils.isNotEmpty(processStatusHistory)) {
                 processStatusService.save(processStatusHistory);
             }
             processStatusService.save(processStatus);
         }
-
     }
 }
