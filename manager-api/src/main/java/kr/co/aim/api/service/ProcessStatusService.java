@@ -8,6 +8,7 @@ import kr.co.aim.domain.command.ProcessStatusCreateCommand;
 import kr.co.aim.domain.model.ProcessInfo;
 import kr.co.aim.domain.model.ProcessStatus;
 import kr.co.aim.domain.model.ProcessStatusHistory;
+import kr.co.aim.domain.repository.ProcessInfoRepository;
 import kr.co.aim.domain.repository.ProcessStatusHistoryRepository;
 import kr.co.aim.domain.repository.ProcessStatusRepository;
 import kr.co.aim.infra.persistence.mapper.ProcessStatusHistoryMapper;
@@ -30,67 +31,9 @@ public class ProcessStatusService {
 
     private final ProcessStatusRepository processStatusRepository;
     private final ProcessStatusHistoryRepository processStatusHistoryRepository;
-    private final ProcessStatusMapper processStatusMapper;
     private final ProcessStatusHistoryMapper processStatusHistoryMapper;
-    private final ProcessInfoService processInfoService;
-    private final ConnectionCheckService connectionCheckService;
+    private final ProcessInfoRepository processInfoRepository;
 
-    @Transactional
-    public List<ProcessStatus> findAll() {
-        return processStatusRepository.findAll();
-    }
-
-
-    public List<ProcessStatus> findAllProcess()
-    {
-        List<ProcessStatus> processStatuseList = processStatusRepository.findAll();
-        boolean galStatus = connectionCheckService.getGalDbStatus();
-        ProcessStatus galProcessStatus =
-                ProcessStatus
-                        .builder()
-                        //.port()
-                        .processName(SystemName.GAL.getValue())
-                        .status(galStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue() )
-                        //.pid()
-                        //.startRequestTime()
-                        //.startTime()
-                        //.endRequestTime()
-                        //.endTime()
-                        .build();
-        processStatuseList.add(galProcessStatus);
-
-        boolean mantiStatus = connectionCheckService.getMantiStatus();
-        ProcessStatus mantiProcessStatus =
-                ProcessStatus
-                        .builder()
-                        //.port()
-                        .processName(SystemName.MANTI.getValue())
-                        .status(mantiStatus ? ProcessState.RUNNING.getValue() : ProcessState.DOWN.getValue()  )
-                        //.pid()
-                        //.startRequestTime()
-                        //.startTime()
-                        //.endRequestTime()
-                        //.endTime()
-                        .build();
-        processStatuseList.add(mantiProcessStatus);
-
-        return processStatuseList;
-    }
-
-    @Transactional
-    public Optional<ProcessStatus> findByPort(Integer port) {
-        return processStatusRepository.findByPort(port);
-    }
-
-    @Transactional
-    public ProcessStatus save(ProcessStatus processStatus) {
-        return processStatusRepository.save(processStatus);
-    }
-
-    @Transactional
-    public ProcessStatusHistory save(ProcessStatusHistory processStatusHistory) {
-        return processStatusHistoryRepository.save(processStatusHistory);
-    }
 
     @Transactional(readOnly = true)
     public Page<ProcessStatusHistory> findProcessStatusHistoryWithConditions(ProcessStatusHistoryCondition condition, Pageable pageable){
@@ -100,7 +43,7 @@ public class ProcessStatusService {
     @Transactional
     public void checkStoppingStatus(int port) {
         // 1. ProcessStatus 조회 및 업데이트
-        Optional<ProcessStatus> optionalProcessStatus = this.findByPort(port);
+        Optional<ProcessStatus> optionalProcessStatus = processStatusRepository.findByPort(port);
         ProcessStatus ps = null;
         if(optionalProcessStatus.isPresent()){
             ps = optionalProcessStatus.get();
@@ -119,7 +62,7 @@ public class ProcessStatusService {
         LocalDateTime currentTime = LocalDateTime.now();
 
         // 1. ProcessStatus 조회 및 업데이트
-        Optional<ProcessStatus> optionalProcessStatus = this.findByPort(port);
+        Optional<ProcessStatus> optionalProcessStatus = processStatusRepository.findByPort(port);
         ProcessStatus ps = null;
         if(optionalProcessStatus.isPresent()){
             ps = optionalProcessStatus.get();
@@ -144,12 +87,11 @@ public class ProcessStatusService {
         // STOPPING 상태로 변경 (ProcessState Enum에 STOPPING이 있다고 가정)
         ps.setStatus(ProcessState.STOPPING.getValue());
         ps.setEndRequestTime(currentTime); // 수정 시간 업데이트
-        ps = this.save(ps);
+        ps = processStatusRepository.save(ps);
 
         // 2. History 추가
         ProcessStatusHistory history = processStatusHistoryMapper.toHistoryEntity(ps);
-
-        this.save(history);
+        processStatusHistoryRepository.save(history);
     }
 
     /**
@@ -168,14 +110,14 @@ public class ProcessStatusService {
         LocalDateTime currentTime = LocalDateTime.now();
 
         String processName = "";
-        Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
+        Optional<ProcessInfo> optionalProcessInfo = processInfoRepository.findByPort(port);
         if(optionalProcessInfo.isPresent()){
             ProcessInfo processInfo = optionalProcessInfo.get();
             processName = processInfo.getProcessName();
         }
 
         // 1. ProcessStatus 조회 및 업데이트
-        Optional<ProcessStatus> optionalProcessStatus = this.findByPort(port);
+        Optional<ProcessStatus> optionalProcessStatus = processStatusRepository.findByPort(port);
         ProcessStatus ps = null;
         if(optionalProcessStatus.isPresent()){
             ps = optionalProcessStatus.get();
@@ -201,12 +143,11 @@ public class ProcessStatusService {
         // DOWN 상태로 변경
         ps.setStatus(ProcessState.DOWN.getValue());
         ps.setEndRequestTime(currentTime); // 수정 시간 업데이트
-        ps = this.save(ps);
+        ps = processStatusRepository.save(ps);
 
         // 2. History 추가
         ProcessStatusHistory history = processStatusHistoryMapper.toHistoryEntity(ps);
-
-        this.save(history);
+        processStatusHistoryRepository.save(history);
     }
 
 

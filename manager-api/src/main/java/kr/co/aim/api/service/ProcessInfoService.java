@@ -74,7 +74,7 @@ public class ProcessInfoService {
         String batchDir = vo.getBatchDir();
         String batchName = vo.getBatchName();
         ProcessInfo processInfo;
-        Optional<ProcessInfo> optionalProcessInfo = findByPort(port);
+        Optional<ProcessInfo> optionalProcessInfo = processInfoRepository.findByPort(port);
         if(optionalProcessInfo.isPresent()){
             processInfo = optionalProcessInfo.get();
         }
@@ -118,21 +118,5 @@ public class ProcessInfoService {
 
         return page;
     }
-
-    @Transactional
-    public List<ProcessInfo> findBySystemName(String systemName) {
-        return processInfoRepository.findBySystemName(systemName);
-    }
-
-    @Transactional
-    public List<ProcessInfo> findAll() {
-        return processInfoRepository.findAll();
-    }
-
-    @Transactional
-    public Optional<ProcessInfo> findByPort(Integer port) {
-        return processInfoRepository.findByPort(port);
-    }
-
 
 }

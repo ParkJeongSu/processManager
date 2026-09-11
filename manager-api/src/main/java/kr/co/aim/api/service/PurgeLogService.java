@@ -21,20 +21,6 @@ import java.util.Optional;
 public class PurgeLogService {
     private final PurgeLogRepository purgeLogRepository;
 
-    @Transactional
-    public List<PurgeLog> findAll(){
-        return purgeLogRepository.findAll();
-    }
-
-    @Transactional
-    public PurgeLog save(PurgeLog purgeLog){
-        return purgeLogRepository.save(purgeLog);
-    }
-
-    @Transactional
-    public Optional<PurgeLog> findByBatchIdAndTableName(String batchId, String tableName){
-        return purgeLogRepository.findByBatchIdAndTableName(batchId, tableName);
-    }
 
     @Transactional(readOnly = true)
     public Page<PurgeLog> findPurgeLogWithConditions(PurgeLogSearchCondition condition, Pageable pageable){
@@ -43,7 +29,7 @@ public class PurgeLogService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void writeLog(PurgeLogCreateCommand command){
-        Optional<PurgeLog> optionalPurgeLog = findByBatchIdAndTableName(command.getBatchId(), command.getTableName());
+        Optional<PurgeLog> optionalPurgeLog = purgeLogRepository.findByBatchIdAndTableName(command.getBatchId(), command.getTableName());
         PurgeLog purgeLog = null;
         if(optionalPurgeLog.isPresent()){
             purgeLog = optionalPurgeLog.get();
@@ -52,7 +38,7 @@ public class PurgeLogService {
         }else {
             purgeLog = PurgeLog.create(command);
         }
-        this.save(purgeLog);
+        purgeLogRepository.save(purgeLog);
     }
 
 }

@@ -3,6 +3,9 @@ package kr.co.aim.api.service;
 import kr.co.aim.common.enums.SystemName;
 import kr.co.aim.common.condition.ProcessControlRequestCondition;
 import kr.co.aim.domain.command.ProcessStatusCreateCommand;
+import kr.co.aim.domain.repository.ProcessInfoRepository;
+import kr.co.aim.domain.repository.ProcessStatusHistoryRepository;
+import kr.co.aim.domain.repository.ProcessStatusRepository;
 import kr.co.aim.infra.persistence.mapper.ProcessStatusHistoryMapper;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -34,16 +37,18 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class ProcessService {
-    private final ProcessInfoService processInfoService;
     private final ProcessStatusService processStatusService;
     private final ConnectionCheckService connectionCheckService;
     private final ProcessAsyncService processAsyncService;
     private final ProcessStatusHistoryMapper processStatusHistoryMapper;
+    private final ProcessStatusHistoryRepository processStatusHistoryRepository;
+    private final ProcessStatusRepository processStatusRepository;
+    private final ProcessInfoRepository processInfoRepository;
 
     public List<ProcessStatusResponseDto> getProcessList() {
         List<ProcessStatusResponseDto> resultList = new ArrayList<>();
-        List<ProcessInfo> processes = processInfoService.findAll();
-        List<ProcessStatus> processStatuses = processStatusService.findAll();
+        List<ProcessInfo> processes = processInfoRepository.findAll();
+        List<ProcessStatus> processStatuses = processStatusRepository.findAll();
         Map<Integer, ProcessStatus> statusPorts = new HashMap<>();
         for (ProcessStatus status : processStatuses) {
             statusPorts.put(status.getPort(), status);
@@ -162,7 +167,7 @@ public class ProcessService {
      */
     @Transactional
     public ProcessStatusResponseDto startProcess(int port, ProcessControlRequestCondition vo) {
-        Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
+        Optional<ProcessInfo> optionalProcessInfo = processInfoRepository.findByPort(port);
         if (optionalProcessInfo.isEmpty()) {
             throw new IllegalArgumentException("해당 포트(" + port + ")의 프로세스 설정 정보가 없습니다.");
         }
@@ -173,7 +178,7 @@ public class ProcessService {
         }
         LocalDateTime currentTime = LocalDateTime.now();
 
-        Optional<ProcessStatus> optionalProcessStatus = processStatusService.findByPort(port);
+        Optional<ProcessStatus> optionalProcessStatus = processStatusRepository.findByPort(port);
         ProcessStatus processStatus = null;
         if (optionalProcessStatus.isPresent()) {
             processStatus = optionalProcessStatus.get();
@@ -194,10 +199,10 @@ public class ProcessService {
 
         processStatus.setStatus(ProcessState.STARTING.getValue());
         processStatus.setStartRequestTime(currentTime);
-        processStatus = processStatusService.save(processStatus);
+        processStatus = processStatusRepository.save(processStatus);
 
         ProcessStatusHistory processStatusHistory = processStatusHistoryMapper.toHistoryEntity(processStatus);
-        processStatusService.save(processStatusHistory);
+        processStatusHistoryRepository.save(processStatusHistory);
 
         try {
             // 파일 복사 로직
@@ -278,13 +283,60 @@ public class ProcessService {
             throw new IllegalStateException("이미 종료된 프로세스이거나 연결할 수 없습니다.");
         }
 
-        Optional<ProcessInfo> optionalProcessInfo = processInfoService.findByPort(port);
+        Optional<ProcessInfo> optionalProcessInfo = processInfoRepository.findByPort(port);
         if (optionalProcessInfo.isEmpty()) {
             throw new IllegalArgumentException("설정 정보 없음");
         }
         ProcessInfo processInfo = optionalProcessInfo.get();
 
         processStatusService.checkStoppingStatus(port);
+
+        // ======================= [무중단 패치 검증 로직 시작] =======================
+        String currentGroup = processInfo.getProcessGroupName();
+
+        // processGroupName이 설정되어 있는 경우에만 그룹 체크 수행
+        if (currentGroup != null && !currentGroup.trim().isEmpty()) {
+            List<ProcessInfo> allProcessList = processInfoRepository.findAll();
+
+            // 1. 현재 프로세스와 동일한 그룹을 가진 프로세스 목록 수집
+            List<ProcessInfo> sameGroupProcesses = new ArrayList<>();
+            for (ProcessInfo item : allProcessList) {
+                if (item.getPort() != null && currentGroup.equals(item.getProcessGroupName())) {
+                    sameGroupProcesses.add(item);
+                }
+            }
+
+            // 2. 동일 그룹 프로세스가 2개 이상일 때만 다른 프로세스들의 상태 검사
+            if (sameGroupProcesses.size() > 1) {
+                boolean hasOtherRunningProcess = false;
+
+                for (ProcessInfo groupItem : sameGroupProcesses) {
+                    // 본인 포트는 검사 대상에서 제외
+                    if (groupItem.getPort().equals(port)) {
+                        continue;
+                    }
+
+                    // 다른 프로세스의 상태 조회
+                    Optional<ProcessStatus> otherStatusOpt = processStatusRepository.findByPort(groupItem.getPort());
+                    if (otherStatusOpt.isPresent()) {
+                        ProcessStatus otherStatus = otherStatusOpt.get();
+                        // 실행 중(Running) 상태인 다른 프로세스가 있는지 확인
+                        if (ProcessState.RUNNING.getValue().equals(otherStatus.getStatus())) {
+                            hasOtherRunningProcess = true;
+                            break; // 하나라도 실행 중인 것을 확인했으므로 탐색 종료
+                        }
+                    }
+                }
+
+                // 본인 외에 Running 중인 프로세스가 하나도 없다면 종료 차단
+                if (!hasOtherRunningProcess) {
+                    throw new IllegalStateException(
+                            "해당 프로세스 그룹(" + currentGroup + ")에서 현재 실행 중인 마지막 프로세스이므로 무중단 패치를 위해 종료할 수 없습니다."
+                    );
+                }
+            }
+        }
+        // ======================= [무중단 패치 검증 로직 끝] =======================
 
         try {
             processStatusService.markAsStopping(port, processInfo, requestVo.getEventUser());
@@ -379,8 +431,8 @@ public class ProcessService {
 
     @Transactional
     public void checkProcessStatus() {
-        List<ProcessInfo> processInfoList = processInfoService.findAll();
-        List<ProcessStatus> processStatusList = processStatusService.findAll();
+        List<ProcessInfo> processInfoList = processInfoRepository.findAll();
+        List<ProcessStatus> processStatusList = processStatusRepository.findAll();
 
         Map<Integer, ProcessStatus> statusPorts = new HashMap<>();
         for (ProcessStatus status : processStatusList) {
@@ -504,9 +556,9 @@ public class ProcessService {
             }
 
             if (ObjectUtils.isNotEmpty(processStatusHistory)) {
-                processStatusService.save(processStatusHistory);
+                processStatusHistoryRepository.save(processStatusHistory);
             }
-            processStatusService.save(processStatus);
+            processStatusRepository.save(processStatus);
         }
     }
 }
